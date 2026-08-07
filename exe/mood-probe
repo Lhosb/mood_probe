@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "optparse"
+require "pathname"
+require "mood_probe"
+
+options = {
+  models_dir: ENV.fetch("MOOD_PROBE_MODELS_DIR", File.expand_path("~/.cache/mood_probe/models")),
+  timeout_per_file: 60,
+  python_executable: "python3"
+}
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: mood-probe [options] analyze FILE | models verify | models fetch"
+  parser.on("--models-dir DIR") { |value| options[:models_dir] = value }
+  parser.on("--timeout SECONDS", Integer) { |value| options[:timeout_per_file] = value }
+  parser.on("--python EXECUTABLE") { |value| options[:python_executable] = value }
+end.parse!(ARGV)
+
+begin
+  command = ARGV.shift
+  extractor = MoodProbe::Extractor.new(**options)
+
+  case command
+  when "analyze"
+    path = ARGV.shift or abort("analyze requires FILE")
+    puts JSON.pretty_generate(extractor.analyze(path).to_h)
+  when "models"
+    subcommand = ARGV.shift
+    case subcommand
+    when "verify"
+      extractor.verify!
+      puts "Models verified"
+    when "fetch"
+      MoodProbe::ModelStore.new(options.fetch(:models_dir)).fetch!
+      puts "Models fetched and verified"
+    else
+      abort("models requires verify or fetch")
+    end
+  else
+    abort("expected analyze or models")
+  end
+rescue MoodProbe::Error => e
+  warn e.message
+  exit 1
+end

@@ -1,0 +1,7 @@
+/.bundle/
+/__pycache__/
+**/__pycache__/
+/*.gem
+/coverage/
+/pkg/
+/.rspec_status

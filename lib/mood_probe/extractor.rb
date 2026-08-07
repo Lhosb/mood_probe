@@ -1,0 +1,47 @@
+require "pathname"
+
+module MoodProbe
+  class Extractor
+    def initialize(
+      models_dir:,
+      timeout_per_file: 60,
+      python_executable: "python3",
+      backend: nil
+    )
+      @backend = backend || Backends::EssentiaPython.new(
+        models_dir:,
+        timeout_per_file:,
+        python_executable:
+      )
+    end
+
+    def verify!
+      backend.verify!
+    end
+
+    def analyze(path)
+      result = analyze_all([path]).first
+      raise result.error unless result.ok?
+
+      result.features
+    end
+
+    def analyze_all(paths)
+      normalized_paths = paths.map { |path| Pathname(path) }
+      verify!
+
+      normalized_paths.map do |path|
+        outcome = backend.analyze(path)
+        if outcome.is_a?(TrackError)
+          Result.new(path:, error: outcome)
+        else
+          Result.new(path:, features: Features.new(outcome))
+        end
+      end
+    end
+
+    private
+
+    attr_reader :backend
+  end
+end

@@ -1,0 +1,13 @@
+mood_probe is licensed under the MIT License.
+
+This gem interoperates with Essentia, which is distributed separately under
+the GNU Affero General Public License v3.0. Essentia code is not included in
+this gem.
+
+The model files referenced by MoodProbe::ModelRegistry are distributed
+separately by the Music Technology Group at Universitat Pompeu Fabra. Their
+metadata identifies Creative Commons BY-NC-SA 4.0 and BY-NC-ND 4.0 terms,
+depending on the model. Model files are not included in this gem.
+
+Operators are responsible for reviewing and complying with the licenses for
+Essentia and each model before installing or using those separate components.
