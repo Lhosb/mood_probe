@@ -169,6 +169,20 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     end
   end
 
+  it "treats multiple NDJSON results for one path as a fatal protocol error" do
+    line = JSON.generate(path: "track.wav", features: valid_features)
+    allow(runner).to receive(:call).and_return(
+      described_class::CommandRunner::Result.new(
+        stdout: "#{line}\n#{line}\n",
+        stderr: "",
+        exitstatus: 0
+      )
+    )
+
+    expect { backend.analyze("track.wav") }
+      .to raise_error(MoodProbe::BackendError, /returned no result/)
+  end
+
   def valid_features
     {
       "valence" => 0.4,

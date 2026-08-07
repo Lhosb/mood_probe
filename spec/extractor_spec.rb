@@ -75,6 +75,33 @@ RSpec.describe MoodProbe::Extractor do
     expect(backend).to have_received(:verify!).once
   end
 
+  it "retries both verification layers after a failed preflight" do
+    runner = instance_double(MoodProbe::Backends::EssentiaPython::CommandRunner)
+    model_store = instance_double(MoodProbe::ModelStore, verify!: true)
+    real_backend = MoodProbe::Backends::EssentiaPython.new(
+      models_dir: "/models",
+      command_runner: runner,
+      model_store:
+    )
+    real_extractor = described_class.new(models_dir: "/models", backend: real_backend)
+    failed = MoodProbe::Backends::EssentiaPython::CommandRunner::Result.new(
+      stdout: "",
+      stderr: "preflight failed",
+      exitstatus: 1
+    )
+    succeeded = MoodProbe::Backends::EssentiaPython::CommandRunner::Result.new(
+      stdout: "",
+      stderr: "",
+      exitstatus: 0
+    )
+    allow(runner).to receive(:call).and_return(failed, succeeded)
+
+    expect { real_extractor.verify! }.to raise_error(MoodProbe::BackendError, /preflight failed/)
+    expect(real_extractor.verify!).to be(true)
+    expect(runner).to have_received(:call).twice
+    expect(model_store).to have_received(:verify!).twice
+  end
+
   it "initializes verification state" do
     expect(extractor.instance_variable_get(:@verified)).to be(false)
   end
