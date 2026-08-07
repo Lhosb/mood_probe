@@ -22,6 +22,12 @@ RSpec.describe MoodProbe::Features do
     expect(described_class.new(string_values).to_h).to eq(values)
   end
 
+  it "normalizes numeric values to Float" do
+    values[:valence] = 1
+
+    expect(features.to_h[:valence]).to eql(1.0)
+  end
+
   it "clamps regression heads just outside the output range" do
     values[:valence] = -0.004
     values[:arousal] = 1.025

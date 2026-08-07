@@ -51,4 +51,37 @@ RSpec.describe "python/mood_probe_extract.py" do
     expect(stdout).to be_empty
     expect(stderr).to include("configuration failed")
   end
+
+  it "exits one when an unexpected run-level crash occurs" do
+    harness = <<~PYTHON
+      import importlib.util
+      import sys
+
+      spec = importlib.util.spec_from_file_location("mood_probe_extract", sys.argv[1])
+      mood_probe_extract = importlib.util.module_from_spec(spec)
+      spec.loader.exec_module(mood_probe_extract)
+
+      class ExplodingPaths:
+          def __bool__(self):
+              return True
+
+          def __iter__(self):
+              raise RuntimeError("unexpected run crash")
+
+      class Args:
+          audio_paths = ExplodingPaths()
+          models_dir = "/models"
+          verify = False
+
+      mood_probe_extract.argparse.ArgumentParser.parse_args = lambda self: Args()
+      mood_probe_extract.load_models = lambda models_dir: object()
+      sys.exit(mood_probe_extract.main())
+    PYTHON
+
+    stdout, stderr, status = Open3.capture3("python3", "-c", harness, script.to_s)
+
+    expect(status.exitstatus).to eq(1)
+    expect(stdout).to be_empty
+    expect(stderr).to include("backend crashed: unexpected run crash")
+  end
 end
