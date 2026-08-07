@@ -15,6 +15,7 @@ module MoodProbe
         value = normalized.fetch(head)
         validate_number!(head, value)
         validate_range!(head, value)
+        value = value.to_f
         [head, REGRESSION_HEADS.include?(head) ? value.clamp(OUTPUT_RANGE) : value]
       end.freeze
     end
@@ -27,24 +28,27 @@ module MoodProbe
 
     def validate_keys!(values)
       missing = HEADS - values.keys
-      raise BackendError, "missing mood head: #{missing.first}" if missing.any?
+      raise SchemaError, "missing mood head: #{missing.first}" if missing.any?
 
       extra = values.keys - HEADS
-      raise BackendError, "unexpected mood head: #{extra.first}" if extra.any?
+      raise SchemaError, "unexpected mood head: #{extra.first}" if extra.any?
     end
 
     def validate_number!(head, value)
-      return if value.is_a?(Numeric) && value.finite?
+      raise SchemaError, "#{head} must be numeric" unless value.is_a?(Numeric)
+      return if value.finite?
 
-      raise BackendError, "#{head} must be a finite numeric value"
+      raise MalformedOutputError, "#{head} must be a finite numeric value"
     end
 
     def validate_range!(head, value)
-      raise BackendError, "#{head} is outside the sanity window #{SANITY_RANGE}" unless SANITY_RANGE.cover?(value)
+      unless SANITY_RANGE.cover?(value)
+        raise MalformedOutputError, "#{head} is outside the sanity window #{SANITY_RANGE}"
+      end
       return unless CLASSIFICATION_HEADS.include?(head)
       return if OUTPUT_RANGE.cover?(value)
 
-      raise BackendError, "#{head} must be within #{OUTPUT_RANGE}"
+      raise MalformedOutputError, "#{head} must be within #{OUTPUT_RANGE}"
     end
   end
 end

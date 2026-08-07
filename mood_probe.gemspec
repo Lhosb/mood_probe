@@ -3,8 +3,8 @@ require_relative "lib/mood_probe/version"
 Gem::Specification.new do |spec|
   spec.name = "mood_probe"
   spec.version = MoodProbe::VERSION
-  spec.authors = ["MoodProbe contributors"]
-  spec.email = ["opensource@example.invalid"]
+  spec.authors = ["Luke Olson"]
+  spec.email = ["49695362+Lhosb@users.noreply.github.com"]
 
   spec.summary = "Extract six mood features from audio through Essentia"
   spec.description = "A Ruby interface and CLI for verified Essentia TensorFlow mood extraction."

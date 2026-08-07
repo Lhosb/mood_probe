@@ -1,5 +1,5 @@
 RSpec.describe MoodProbe::Backends::EssentiaPython do
-  let(:runner) { instance_double("command runner") }
+  let(:runner) { instance_double(described_class::CommandRunner) }
   let(:model_store) { instance_double(MoodProbe::ModelStore, verify!: true) }
   let(:backend) do
     described_class.new(
@@ -38,6 +38,18 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
       ["/custom/python", kind_of(String), "--verify", "--models-dir", "/models"],
       timeout: 70
     )
+  end
+
+  it "memoizes a successful preflight" do
+    allow(runner).to receive(:call).and_return(
+      described_class::CommandRunner::Result.new(stdout: "", stderr: "", exitstatus: 0)
+    )
+
+    expect(backend.verify!).to be(true)
+    expect(backend.verify!).to be(true)
+
+    expect(model_store).to have_received(:verify!).once
+    expect(runner).to have_received(:call).once
   end
 
   it "maps per-file protocol errors to TrackError instances" do
@@ -82,6 +94,41 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
       described_class::CommandRunner::Result.new(stdout: "", stderr: "crash", exitstatus: 1)
     )
     expect { backend.analyze("track.wav") }.to raise_error(MoodProbe::BackendError, /crash/)
+  end
+
+  it "keeps a nil exit status inside the MoodProbe error taxonomy" do
+    allow(runner).to receive(:call).and_return(
+      described_class::CommandRunner::Result.new(
+        stdout: "",
+        stderr: "",
+        exitstatus: nil,
+        termsig: nil
+      )
+    )
+
+    expect { backend.analyze("track.wav") }
+      .to raise_error(MoodProbe::BackendError, /terminated/)
+  end
+
+  it "maps verify timeouts to BackendError" do
+    allow(runner).to receive(:call).and_raise(described_class::CommandTimeout)
+
+    expect { backend.verify! }.to raise_error(MoodProbe::BackendError, /preflight timed out/)
+  end
+
+  {
+    "no result" => "",
+    "wrong path" => JSON.generate(path: "other.wav", features: { "valence" => 0.4 }) << "\n",
+    "omitted features" => JSON.generate(path: "track.wav") << "\n",
+    "invalid NDJSON" => "not json\n"
+  }.each do |description, stdout|
+    it "maps #{description} to BackendError" do
+      allow(runner).to receive(:call).and_return(
+        described_class::CommandRunner::Result.new(stdout:, stderr: "", exitstatus: 0)
+      )
+
+      expect { backend.analyze("track.wav") }.to raise_error(MoodProbe::BackendError)
+    end
   end
 
   def valid_features

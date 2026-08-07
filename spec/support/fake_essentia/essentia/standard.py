@@ -1,5 +1,7 @@
 """Small test double for the subset of essentia.standard used by the CLI."""
 
+import os
+
 
 class Prediction:
     def __init__(self, values):
@@ -23,7 +25,8 @@ class MonoLoader:
 
 class TensorflowPredictMusiCNN:
     def __init__(self, graphFilename, output):
-        pass
+        if os.environ.get("FAKE_ESSENTIA_CONFIG_ERROR"):
+            raise RuntimeError("fake model configuration failed")
 
     def __call__(self, audio):
         if "crash" in audio[0]:

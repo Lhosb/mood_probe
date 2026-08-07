@@ -20,13 +20,25 @@ RSpec.describe MoodProbe::Backends::EssentiaPython::CommandRunner do
       elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
       child_pid = Integer(File.read(pid_file))
       expect(elapsed).to be < 1.5
-      expect { Process.kill(0, child_pid) }.to raise_error(Errno::ESRCH)
+      expect(process_gone?(child_pid)).to be(true)
     end
   ensure
     begin
       Process.kill("KILL", child_pid) if child_pid
     rescue Errno::ESRCH
       nil
+    end
+  end
+
+  def process_gone?(pid)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 1
+    loop do
+      Process.kill(0, pid)
+      return false if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+
+      sleep 0.01
+    rescue Errno::ESRCH
+      return true
     end
   end
 end

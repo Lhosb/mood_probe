@@ -16,7 +16,10 @@ module MoodProbe
     end
 
     def verify!
+      return true if @verified
+
       backend.verify!
+      @verified = true
     end
 
     def analyze(path)
@@ -46,8 +49,8 @@ module MoodProbe
 
     def result_for_features(path, values)
       Result.new(path:, features: Features.new(values))
-    rescue BackendError => e
-      Result.new(path:, error: MalformedOutputError.new(e.message))
+    rescue MalformedOutputError => e
+      Result.new(path:, error: e)
     end
   end
 end

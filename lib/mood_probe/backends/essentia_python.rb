@@ -13,9 +13,18 @@ module MoodProbe
       class CommandLaunchError < StandardError; end
 
       class CommandRunner
-        Result = Struct.new(:stdout, :stderr, :exitstatus, keyword_init: true)
+        Result = Struct.new(:stdout, :stderr, :exitstatus, :termsig, keyword_init: true)
 
         def call(command, timeout:)
+          stdout_text, stderr_text, status = capture(command, timeout:)
+          result(stdout_text, stderr_text, status)
+        rescue Errno::ENOENT, Errno::EACCES => e
+          raise CommandLaunchError, e.message
+        end
+
+        private
+
+        def capture(command, timeout:)
           stdout_text = stderr_text = nil
           status = nil
 
@@ -35,12 +44,12 @@ module MoodProbe
             end
           end
 
-          Result.new(stdout: stdout_text, stderr: stderr_text, exitstatus: status.exitstatus)
-        rescue Errno::ENOENT, Errno::EACCES => e
-          raise CommandLaunchError, e.message
+          [stdout_text, stderr_text, status]
         end
 
-        private
+        def result(stdout, stderr, status)
+          Result.new(stdout:, stderr:, exitstatus: status.exitstatus, termsig: status.termsig)
+        end
 
         def collect(reader, stream)
           return reader.value if reader.join(2)
@@ -77,13 +86,15 @@ module MoodProbe
       end
 
       def verify!
+        return true if @verified
+
         model_store.verify!
         result = run_command(
           [python_executable, SCRIPT_PATH.to_s, "--verify", "--models-dir", models_dir.to_s],
           timeout: command_timeout
         )
         raise_for_fatal_exit!(result)
-        true
+        @verified = true
       rescue CommandTimeout
         raise BackendError, "Essentia model preflight timed out"
       end
@@ -94,6 +105,8 @@ module MoodProbe
           [python_executable, SCRIPT_PATH.to_s, pathname.to_s, "--models-dir", models_dir.to_s],
           timeout: command_timeout
         )
+        return process_error(result, pathname) if result.exitstatus.nil? && result.termsig
+
         raise_for_fatal_exit!(result)
         parse_result(result.stdout, pathname)
       rescue CommandTimeout
@@ -115,12 +128,22 @@ module MoodProbe
       end
 
       def raise_for_fatal_exit!(result)
-        return if result.exitstatus.zero?
+        return if result.exitstatus&.zero?
 
         message = result.stderr.to_s.strip
+        if result.exitstatus.nil?
+          signal = result.termsig ? " by signal #{result.termsig}" : ""
+          raise BackendError, "Essentia backend terminated#{signal}"
+        end
         message = "Essentia backend exited #{result.exitstatus}" if message.empty?
         error_class = result.exitstatus == 2 ? ConfigurationError : BackendError
         raise error_class, message
+      end
+
+      def process_error(result, pathname)
+        BackendProcessError.new(
+          "Essentia extraction terminated by signal #{result.termsig} for #{pathname}"
+        )
       end
 
       def parse_result(output, requested_path)
@@ -131,12 +154,24 @@ module MoodProbe
         unless payload["path"] == requested_path.to_s
           raise BackendError, "Essentia backend returned a result for the wrong path"
         end
-        return UnreadableAudioError.new(payload.dig("error", "message").to_s) if payload["error"]
+        return error_from_payload(payload["error"]) if payload["error"]
         raise BackendError, "Essentia backend omitted features for #{requested_path}" unless payload["features"]
 
         payload["features"]
       rescue JSON::ParserError => e
         raise BackendError, "Essentia backend returned invalid NDJSON: #{e.message}"
+      end
+
+      def error_from_payload(error)
+        message = error["message"].to_s
+        case error["type"]
+        when "unreadable_audio"
+          UnreadableAudioError.new(message)
+        when "inference_error"
+          InferenceError.new(message)
+        else
+          raise BackendError, "Essentia backend returned unknown error type: #{error['type']}"
+        end
       end
     end
   end

@@ -66,10 +66,40 @@ RSpec.describe MoodProbe::Extractor do
     expect(results.map(&:path)).to eq([Pathname("string.wav"), Pathname("pathname.wav")])
   end
 
+  it "preflights exactly once for a multi-path analyze_all" do
+    allow(backend).to receive(:analyze).and_return(good_features)
+    allow(extractor).to receive(:verify!).and_call_original
+
+    extractor.analyze_all(%w[one.wav two.wav three.wav])
+
+    expect(extractor).to have_received(:verify!).once
+  end
+
+  it "preflights exactly once across repeated analyze calls" do
+    allow(backend).to receive(:analyze).and_return(good_features)
+
+    extractor.analyze("one.wav")
+    extractor.analyze("two.wav")
+
+    expect(backend).to have_received(:verify!).once
+  end
+
+  it "propagates fatal BackendError and stops processing later paths" do
+    allow(backend).to receive(:analyze).with(Pathname("one.wav")).and_return(good_features)
+    allow(backend).to receive(:analyze).with(Pathname("two.wav"))
+                                       .and_raise(MoodProbe::BackendError, "invalid NDJSON")
+    allow(backend).to receive(:analyze).with(Pathname("three.wav")).and_return(good_features)
+
+    expect { extractor.analyze_all(%w[one.wav two.wav three.wav]) }
+      .to raise_error(MoodProbe::BackendError, /invalid NDJSON/)
+    expect(backend).not_to have_received(:analyze).with(Pathname("three.wav"))
+  end
+
   {
     "a non-finite value" => ->(features) { features.merge(valence: Float::NAN) },
-    "a missing key" => ->(features) { features.except(:mood_happy) },
-    "a value outside the sanity window" => ->(features) { features.merge(arousal: 1.5001) }
+    "a value outside the sanity window" => ->(features) { features.merge(arousal: 1.5001) },
+    "a value below the sanity window" => ->(features) { features.merge(valence: -0.5001) },
+    "a classification value outside its range" => ->(features) { features.merge(danceability: -0.0001) }
   }.each do |description, malformed_features|
     it "keeps positional results when one file returns #{description}" do
       paths = %w[good-1.wav good-2.wav malformed.wav good-3.wav]
@@ -87,6 +117,23 @@ RSpec.describe MoodProbe::Extractor do
       expect(results.map(&:ok?)).to eq([true, true, false, true])
       expect(results[2].error).to be_a(MoodProbe::MalformedOutputError)
       expect(results.values_at(0, 1, 3).map { |result| result.features.to_h[:valence] }).to eq([0.1, 0.2, 0.4])
+    end
+  end
+
+  {
+    "a missing key" => ->(features) { features.except(:mood_happy) },
+    "an unexpected key" => ->(features) { features.merge(mood_joy: 0.5) },
+    "a non-numeric type" => ->(features) { features.merge(valence: "0.4") }
+  }.each do |description, schema_drift|
+    it "raises SchemaError and stops later files when one file returns #{description}" do
+      allow(backend).to receive(:analyze).with(Pathname("one.wav")).and_return(good_features)
+      allow(backend).to receive(:analyze).with(Pathname("schema-drift.wav"))
+                                         .and_return(schema_drift.call(good_features))
+      allow(backend).to receive(:analyze).with(Pathname("three.wav")).and_return(good_features)
+
+      expect { extractor.analyze_all(%w[one.wav schema-drift.wav three.wav]) }
+        .to raise_error(MoodProbe::SchemaError)
+      expect(backend).not_to have_received(:analyze).with(Pathname("three.wav"))
     end
   end
 

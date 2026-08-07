@@ -29,7 +29,7 @@ RSpec.describe MoodProbe::ModelStore do
   end
 
   it "does not download models during verification" do
-    downloader = instance_double("downloader")
+    downloader = instance_double(MoodProbe::ModelStore::Downloader)
 
     Dir.mktmpdir do |dir|
       store = described_class.new(dir, registry:, downloader:)
@@ -39,7 +39,7 @@ RSpec.describe MoodProbe::ModelStore do
   end
 
   it "downloads models when fetch! is called explicitly" do
-    downloader = instance_double("downloader")
+    downloader = instance_double(MoodProbe::ModelStore::Downloader)
 
     Dir.mktmpdir do |dir|
       store = described_class.new(dir, registry:, downloader:)

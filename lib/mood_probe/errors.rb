@@ -5,8 +5,11 @@ module MoodProbe
   class UnreadableAudioError < TrackError; end
   class TimeoutError < TrackError; end
   class MalformedOutputError < TrackError; end
+  class InferenceError < TrackError; end
+  class BackendProcessError < TrackError; end
 
   class FatalError < Error; end
   class ConfigurationError < FatalError; end
   class BackendError < FatalError; end
+  class SchemaError < FatalError; end
 end

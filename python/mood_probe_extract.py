@@ -103,8 +103,19 @@ def main() -> int:
                 )
                 continue
 
-            features = analyze(audio, loaded_models)
-            emit({"path": raw_path, "features": features})
+            try:
+                features = analyze(audio, loaded_models)
+                emit({"path": raw_path, "features": features})
+            except Exception as exc:
+                emit(
+                    {
+                        "path": raw_path,
+                        "error": {
+                            "type": "inference_error",
+                            "message": str(exc),
+                        },
+                    }
+                )
     except Exception as exc:
         print(f"mood_probe backend crashed: {exc}", file=sys.stderr)
         return 1

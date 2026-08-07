@@ -11,7 +11,10 @@ RSpec.configure do |config|
 
   config.disable_monkey_patching!
   config.expect_with(:rspec) { |expectations| expectations.syntax = :expect }
-  config.mock_with(:rspec) { |mocks| mocks.verify_partial_doubles = true }
+  config.mock_with(:rspec) do |mocks|
+    mocks.verify_partial_doubles = true
+    mocks.verify_doubled_constant_names = true
+  end
   config.order = :random
   Kernel.srand config.seed
 end

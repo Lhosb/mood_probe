@@ -1,12 +1,28 @@
+# Run the independently reproducible real-Essentia gate from the gem root:
+#   docker build --platform linux/amd64 -f Dockerfile.essentia -t mood-probe-essentia .
+#   docker run --rm --platform linux/amd64 --entrypoint bash \
+#     -e ESSENTIA_SPECS=1 -e MOOD_PROBE_MODELS_DIR=/tmp/mood_probe_models \
+#     mood-probe-essentia \
+#     -c 'bundle exec ruby -Ilib exe/mood-probe --models-dir "$MOOD_PROBE_MODELS_DIR" models fetch &&
+#         bundle exec rspec spec/integration/essentia_golden_spec.rb --format documentation'
 RSpec.describe "MoodProbe Essentia goldens", :essentia do
-  it "reproduces every Phase 1 golden bit-identically" do
-    fixture_root = Pathname(ENV.fetch("MOOD_PROBE_FIXTURE_ROOT"))
-    audio_dir = fixture_root.join("audio")
-    golden_dir = fixture_root.join("golden")
-    extractor = MoodProbe::Extractor.new(
-      models_dir: ENV.fetch("MOOD_PROBE_MODELS_DIR"),
+  let(:root) { Pathname(__dir__).join("../..").expand_path }
+  let(:fixture_root) do
+    Pathname(ENV.fetch("MOOD_PROBE_FIXTURE_ROOT", root.join("spec/fixtures/mood_probe").to_s))
+  end
+  let(:models_dir) do
+    ENV.fetch("MOOD_PROBE_MODELS_DIR", File.expand_path("~/.cache/mood_probe/models"))
+  end
+  let(:extractor) do
+    MoodProbe::Extractor.new(
+      models_dir:,
       python_executable: ENV.fetch("MOOD_PROBE_PYTHON", "python3")
     )
+  end
+
+  it "reproduces every Phase 1 golden bit-identically" do
+    audio_dir = fixture_root.join("audio")
+    golden_dir = fixture_root.join("golden")
     names = %w[chirp clicks sine_440 white_noise]
 
     results = extractor.analyze_all(names.map { |name| audio_dir.join("#{name}.wav") })
@@ -19,12 +35,6 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
   end
 
   it "returns a TrackError for the Phase 1 undecodable fixture" do
-    fixture_root = Pathname(ENV.fetch("MOOD_PROBE_FIXTURE_ROOT"))
-    extractor = MoodProbe::Extractor.new(
-      models_dir: ENV.fetch("MOOD_PROBE_MODELS_DIR"),
-      python_executable: ENV.fetch("MOOD_PROBE_PYTHON", "python3")
-    )
-
     result = extractor.analyze_all([fixture_root.join("audio/undecodable.m4a")]).first
 
     expect(result).not_to be_ok

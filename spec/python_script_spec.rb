@@ -27,7 +27,7 @@ RSpec.describe "python/mood_probe_extract.py" do
     expect(stdout).to be_empty
   end
 
-  it "preserves partial output and exits one for an unexpected inference crash" do
+  it "reports inference failures per file and continues the run" do
     paths = %w[good-1.wav crash.wav good-2.wav]
     stdout, stderr, status = Open3.capture3(
       { "PYTHONPATH" => python_path },
@@ -35,8 +35,20 @@ RSpec.describe "python/mood_probe_extract.py" do
     )
     payloads = stdout.lines.map { |line| JSON.parse(line) }
 
-    expect(status.exitstatus).to eq(1)
-    expect(payloads.map { |payload| payload.fetch("path") }).to eq(["good-1.wav"])
-    expect(stderr).to include("backend crashed")
+    expect(status).to be_success, stderr
+    expect(payloads.map { |payload| payload.fetch("path") }).to eq(paths)
+    expect(payloads[1]).to include("error" => include("type" => "inference_error"))
+    expect(payloads.values_at(0, 2)).to all(include("features"))
+  end
+
+  it "exits two when model preflight fails end to end" do
+    stdout, stderr, status = Open3.capture3(
+      { "PYTHONPATH" => python_path, "FAKE_ESSENTIA_CONFIG_ERROR" => "1" },
+      "python3", script.to_s, "good.wav", "--models-dir", "/models"
+    )
+
+    expect(status.exitstatus).to eq(2)
+    expect(stdout).to be_empty
+    expect(stderr).to include("configuration failed")
   end
 end
