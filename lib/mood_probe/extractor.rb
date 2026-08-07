@@ -13,6 +13,7 @@ module MoodProbe
         timeout_per_file:,
         python_executable:
       )
+      @verified = false
     end
 
     def verify!

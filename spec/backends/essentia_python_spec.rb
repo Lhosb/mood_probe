@@ -67,6 +67,44 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     expect(error.message).to eq("decode failed")
   end
 
+  it "maps malformed output protocol errors to MalformedOutputError" do
+    allow(runner).to receive(:call).and_return(
+      described_class::CommandRunner::Result.new(
+        stdout: JSON.generate(
+          path: "bad.wav",
+          error: { type: "malformed_output", message: "non-finite feature values" }
+        ) << "\n",
+        stderr: "",
+        exitstatus: 0
+      )
+    )
+
+    error = backend.analyze("bad.wav")
+
+    expect(error).to be_a(MoodProbe::MalformedOutputError)
+    expect(error.message).to eq("non-finite feature values")
+  end
+
+  it "treats unknown protocol error types as fatal" do
+    allow(runner).to receive(:call).and_return(
+      described_class::CommandRunner::Result.new(
+        stdout: JSON.generate(
+          path: "bad.wav",
+          error: { type: "new_backend_error", message: "new failure" }
+        ) << "\n",
+        stderr: "",
+        exitstatus: 0
+      )
+    )
+
+    expect { backend.analyze("bad.wav") }
+      .to raise_error(MoodProbe::BackendError, /unknown error type: new_backend_error/)
+  end
+
+  it "initializes verification state" do
+    expect(backend.instance_variable_get(:@verified)).to be(false)
+  end
+
   it "maps command timeouts to a TrackError" do
     allow(runner).to receive(:call).and_raise(MoodProbe::Backends::EssentiaPython::CommandTimeout)
 

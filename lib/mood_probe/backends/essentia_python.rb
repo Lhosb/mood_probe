@@ -83,6 +83,7 @@ module MoodProbe
         @python_executable = python_executable.to_s
         @command_runner = command_runner
         @model_store = model_store || ModelStore.new(@models_dir)
+        @verified = false
       end
 
       def verify!
@@ -169,6 +170,8 @@ module MoodProbe
           UnreadableAudioError.new(message)
         when "inference_error"
           InferenceError.new(message)
+        when "malformed_output"
+          MalformedOutputError.new(message)
         else
           raise BackendError, "Essentia backend returned unknown error type: #{error['type']}"
         end

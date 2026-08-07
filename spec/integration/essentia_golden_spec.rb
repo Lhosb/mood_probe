@@ -5,6 +5,7 @@
 #     mood-probe-essentia \
 #     -c 'bundle exec ruby -Ilib exe/mood-probe --models-dir "$MOOD_PROBE_MODELS_DIR" models fetch &&
 #         bundle exec rspec spec/integration/essentia_golden_spec.rb --format documentation'
+# Goldens record the gem's post-clamp public Features output, not raw script output.
 RSpec.describe "MoodProbe Essentia goldens", :essentia do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
   let(:fixture_root) do

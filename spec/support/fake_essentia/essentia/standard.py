@@ -39,6 +39,7 @@ class TensorflowPredict2D:
         self.graph_filename = graphFilename
 
     def __call__(self, embeddings):
+        audio_path = embeddings[0][0]
         if "danceability" in self.graph_filename:
             return Prediction([0.7, 0.3])
         if "mood_acoustic" in self.graph_filename:
@@ -48,5 +49,9 @@ class TensorflowPredict2D:
         if "mood_happy" in self.graph_filename:
             return Prediction([0.5, 0.5])
         if "emomusic" in self.graph_filename:
+            if "nan" in audio_path:
+                return Prediction([float("nan"), 5.8])
+            if "infinity" in audio_path:
+                return Prediction([4.2, float("inf")])
             return Prediction([4.2, 5.8])
         raise ValueError("unknown model")

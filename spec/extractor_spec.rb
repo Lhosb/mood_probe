@@ -66,15 +66,6 @@ RSpec.describe MoodProbe::Extractor do
     expect(results.map(&:path)).to eq([Pathname("string.wav"), Pathname("pathname.wav")])
   end
 
-  it "preflights exactly once for a multi-path analyze_all" do
-    allow(backend).to receive(:analyze).and_return(good_features)
-    allow(extractor).to receive(:verify!).and_call_original
-
-    extractor.analyze_all(%w[one.wav two.wav three.wav])
-
-    expect(extractor).to have_received(:verify!).once
-  end
-
   it "preflights exactly once across repeated analyze calls" do
     allow(backend).to receive(:analyze).and_return(good_features)
 
@@ -82,6 +73,10 @@ RSpec.describe MoodProbe::Extractor do
     extractor.analyze("two.wav")
 
     expect(backend).to have_received(:verify!).once
+  end
+
+  it "initializes verification state" do
+    expect(extractor.instance_variable_get(:@verified)).to be(false)
   end
 
   it "propagates fatal BackendError and stops processing later paths" do

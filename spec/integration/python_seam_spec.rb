@@ -37,4 +37,18 @@ RSpec.describe "real Python to Ruby Features seam" do
     expect(results[1].error).to be_a(MoodProbe::InferenceError)
     expect(results.values_at(0, 2).map { |result| result.features.to_h[:valence] }).to eq([0.4, 0.4])
   end
+
+  it "keeps real Python non-finite outputs positionally aligned" do
+    backend = MoodProbe::Backends::EssentiaPython.new(models_dir: "/models", model_store:)
+    extractor = MoodProbe::Extractor.new(models_dir: "/models", backend:)
+
+    results = extractor.analyze_all(
+      %w[good-1.wav nan-audio.wav good-2.wav infinity-audio.wav good-3.wav]
+    )
+
+    expect(results.map(&:ok?)).to eq([true, false, true, false, true])
+    expect(results.values_at(1, 3).map(&:error)).to all(be_a(MoodProbe::MalformedOutputError))
+    expect(results.values_at(0, 2, 4).map { |result| result.features.to_h[:valence] })
+      .to eq([0.4, 0.4, 0.4])
+  end
 end

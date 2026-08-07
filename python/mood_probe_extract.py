@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -105,6 +106,23 @@ def main() -> int:
 
             try:
                 features = analyze(audio, loaded_models)
+                non_finite = [
+                    key for key, value in features.items() if not math.isfinite(value)
+                ]
+                if non_finite:
+                    emit(
+                        {
+                            "path": raw_path,
+                            "error": {
+                                "type": "malformed_output",
+                                "message": (
+                                    "non-finite feature values: "
+                                    + ", ".join(non_finite)
+                                ),
+                            },
+                        }
+                    )
+                    continue
                 emit({"path": raw_path, "features": features})
             except Exception as exc:
                 emit(
