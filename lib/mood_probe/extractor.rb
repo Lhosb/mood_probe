@@ -35,7 +35,7 @@ module MoodProbe
         if outcome.is_a?(TrackError)
           Result.new(path:, error: outcome)
         else
-          Result.new(path:, features: Features.new(outcome))
+          result_for_features(path, outcome)
         end
       end
     end
@@ -43,5 +43,11 @@ module MoodProbe
     private
 
     attr_reader :backend
+
+    def result_for_features(path, values)
+      Result.new(path:, features: Features.new(values))
+    rescue BackendError => e
+      Result.new(path:, error: MalformedOutputError.new(e.message))
+    end
   end
 end

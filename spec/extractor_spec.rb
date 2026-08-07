@@ -65,4 +65,35 @@ RSpec.describe MoodProbe::Extractor do
 
     expect(results.map(&:path)).to eq([Pathname("string.wav"), Pathname("pathname.wav")])
   end
+
+  {
+    "a non-finite value" => ->(features) { features.merge(valence: Float::NAN) },
+    "a missing key" => ->(features) { features.except(:mood_happy) },
+    "a value outside the sanity window" => ->(features) { features.merge(arousal: 1.5001) }
+  }.each do |description, malformed_features|
+    it "keeps positional results when one file returns #{description}" do
+      paths = %w[good-1.wav good-2.wav malformed.wav good-3.wav]
+      allow(backend).to receive(:analyze).and_return(
+        good_features.merge(valence: 0.1),
+        good_features.merge(valence: 0.2),
+        malformed_features.call(good_features),
+        good_features.merge(valence: 0.4)
+      )
+
+      results = nil
+      expect { results = extractor.analyze_all(paths) }.not_to raise_error
+
+      expect(results.map(&:path)).to eq(paths.map { |path| Pathname(path) })
+      expect(results.map(&:ok?)).to eq([true, true, false, true])
+      expect(results[2].error).to be_a(MoodProbe::MalformedOutputError)
+      expect(results.values_at(0, 1, 3).map { |result| result.features.to_h[:valence] }).to eq([0.1, 0.2, 0.4])
+    end
+  end
+
+  it "raises MalformedOutputError when analyze receives malformed features" do
+    allow(backend).to receive(:analyze).and_return(good_features.merge(valence: Float::NAN))
+
+    expect { extractor.analyze("malformed.wav") }
+      .to raise_error(MoodProbe::MalformedOutputError, /finite/)
+  end
 end
