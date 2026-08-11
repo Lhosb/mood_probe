@@ -105,9 +105,12 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
       domains = {}
       for key, domain in module._ALGORITHM_PARAM_DOMAINS["RhythmExtractor2013"].items():
           domains[key] = sorted(domain) if isinstance(domain, frozenset) else list(domain)
-      # Construction discriminates at every range edge, so __doc__ below is
-      # corroboration. Integer probes record both sides of every enforced range:
-      # min low 39/40, min high 181/180, max low 59/60, max high 251/250.
+      # Construction isolates three range edges, so __doc__ is corroboration
+      # there. The maxTempo lower edge remains doc-text-only: 40/59 violates
+      # both the lower bound and the 20 BPM interval, while minTempo <= 39 is
+      # itself invalid. The unconfounded 40/60 acceptance still pins that corner.
+      # Integer probes record both sides: min low 39/40, min high 181/180,
+      # max low 59/60, and max high 251/250.
       construction_probes = {
           "min_low_outside_39": construction_result(minTempo=39),
           "min_low_inside_40": construction_result(minTempo=40),

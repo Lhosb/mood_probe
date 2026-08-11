@@ -10,8 +10,10 @@ from pathlib import Path
 
 _SCHEMA_VERSION = 1
 # Development version string; does not uniquely identify a build. This
-# cross-check follows whatever library is installed. See
-# https://github.com/Lhosb/mood_probe/issues/3.
+# cross-check follows whatever library is installed, so updating the library
+# and this constant together will not fail the gate. See
+# https://github.com/Lhosb/mood_probe/issues/3 and Phase B DoD B8 for the
+# build-unique closure.
 _ESSENTIA_VERSION = "2.1-beta6-dev"
 _MODEL_FILENAME = re.compile(r"^[A-Za-z0-9._-]+\.pb$")
 _GRAPH_ALGORITHMS = {
