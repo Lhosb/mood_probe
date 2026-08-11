@@ -152,18 +152,70 @@ RSpec.describe "Python plan security boundary" do
   {
     "method" => 1,
     "maxTempo" => "200",
-    "minTempo" => "40"
+    "minTempo" => "40",
+    "maxTempo-bool" => true,
+    "minTempo-bool" => false
   }.each do |key, invalid_value|
-    it "rejects the wrong value type for the #{key} algorithm parameter" do
+    parameter = key.delete_suffix("-bool")
+
+    it "rejects the wrong value type for the #{parameter} algorithm parameter" do
       Dir.mktmpdir do |dir|
         sentinel = Pathname(dir).join("imported")
-        plan = deep_merge_algorithm(params: { key => invalid_value })
+        plan = deep_merge_algorithm(params: { parameter => invalid_value })
         _stdout, stderr, status = run_plan(plan, dir:, sentinel:)
 
         expect(status.exitstatus).to eq(2)
-        expect(stderr).to include("algorithms[0].params.#{key}")
+        expect(stderr).to include("algorithms[0].params.#{parameter}")
         expect(sentinel).not_to exist
       end
+    end
+  end
+
+  %w[minTempo maxTempo].product(%w[NaN Infinity -Infinity 1e309]).each do |key, token|
+    it "rejects #{token} for the #{key} algorithm parameter before importing Essentia" do
+      Dir.mktmpdir do |dir|
+        sentinel = Pathname(dir).join("imported")
+        payload = plan_json_with_raw_param(key, token)
+        _stdout, stderr, status = run_plan_json(payload, dir:, sentinel:)
+
+        expect(status.exitstatus).to eq(2)
+        expect(stderr).to include("algorithms[0].params.#{key}", "finite")
+        expect(sentinel).not_to exist
+      end
+    end
+  end
+
+  {
+    "method" => "unsupported",
+    "minTempo" => 39,
+    "minTempo-high" => 181,
+    "maxTempo" => 59,
+    "maxTempo-high" => 251
+  }.each do |key, invalid_value|
+    parameter = key.delete_suffix("-high")
+
+    it "rejects an out-of-domain #{parameter} algorithm parameter" do
+      Dir.mktmpdir do |dir|
+        sentinel = Pathname(dir).join("imported")
+        plan = deep_merge_algorithm(params: { parameter => invalid_value })
+        _stdout, stderr, status = run_plan(plan, dir:, sentinel:)
+
+        expect(status.exitstatus).to eq(2)
+        expect(stderr).to include("algorithms[0].params.#{parameter}")
+        expect(sentinel).not_to exist
+      end
+    end
+  end
+
+  it "rejects a tempo interval too narrow for RhythmExtractor2013" do
+    Dir.mktmpdir do |dir|
+      sentinel = Pathname(dir).join("imported")
+      plan = deep_merge_algorithm(params: { "minTempo" => 40, "maxTempo" => 60 })
+      _stdout, stderr, status = run_plan(plan, dir:, sentinel:)
+
+      expect(status.exitstatus).to eq(2)
+      expect(stderr).to include("algorithms[0].params", "more than 20 BPM")
+      expect(sentinel).not_to exist
     end
   end
 
@@ -248,15 +300,20 @@ RSpec.describe "Python plan security boundary" do
   end
 
   it "accepts every declared RhythmExtractor2013 parameter type before importing Essentia" do
-    Dir.mktmpdir do |dir|
-      sentinel = Pathname(dir).join("imported")
-      plan = deep_merge_algorithm(
-        params: { "method" => "multifeature", "minTempo" => 40, "maxTempo" => 200.0 }
-      )
-      _stdout, _stderr, status = run_plan(plan, dir:, sentinel:)
+    valid_params = [
+      { "method" => "multifeature", "minTempo" => 40, "maxTempo" => 200.0 },
+      { "method" => "degara", "minTempo" => 180.0, "maxTempo" => 250 }
+    ]
 
-      expect(status.exitstatus).to eq(99)
-      expect(sentinel).to exist
+    valid_params.each do |params|
+      Dir.mktmpdir do |dir|
+        sentinel = Pathname(dir).join("imported")
+        plan = deep_merge_algorithm(params:)
+        _stdout, _stderr, status = run_plan(plan, dir:, sentinel:)
+
+        expect(status.exitstatus).to eq(99)
+        expect(sentinel).to exist
+      end
     end
   end
 
@@ -311,12 +368,22 @@ RSpec.describe "Python plan security boundary" do
   end
 
   def run_plan(plan, dir:, sentinel:)
+    run_plan_json(JSON.generate(plan), dir:, sentinel:)
+  end
+
+  def run_plan_json(payload, dir:, sentinel:)
     Open3.capture3(
       tripwire_environment(sentinel),
       "python3", script.to_s,
       "--models-dir", dir,
-      "--plan-json", JSON.generate(plan),
+      "--plan-json", payload,
       "--verify"
     )
+  end
+
+  def plan_json_with_raw_param(key, token)
+    marker = "__RAW_PARAMETER__"
+    plan = deep_merge_algorithm(params: { key => marker })
+    JSON.generate(plan).sub(JSON.generate(marker), token)
   end
 end

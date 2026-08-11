@@ -139,6 +139,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
     measurement_path.dirname.mkpath
     measurement_path.write("#{JSON.pretty_generate(measurement)}\n")
 
+    # CI's upload-artifact if-no-files-found setting is the persistence guard.
     expect(measurement_path).to exist
     expect(verdicts).to include(verdict)
   end

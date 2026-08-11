@@ -50,6 +50,45 @@ RSpec.describe "MoodProbe typed values" do
         )
       end.to raise_error(MoodProbe::MalformedOutputError, /valence_emomusic.*-3.0.*13.0/)
     end
+
+    it "accepts both inclusive edges of a nominal descriptor sanity range" do
+      values = [-3.0, 13.0].map do |edge|
+        described_class.new(
+          descriptor: registry.fetch(:valence_emomusic),
+          provenance:,
+          value: edge
+        )
+      end
+
+      expect(values.map(&:value)).to eq([-3.0, 13.0])
+    end
+
+    it "accepts the hard upper edge and rejects a value just beyond it" do
+      accepted = described_class.new(
+        descriptor: registry.fetch(:danceability),
+        provenance:,
+        value: 1.0
+      )
+
+      expect(accepted.value).to eq(1.0)
+      expect do
+        described_class.new(
+          descriptor: registry.fetch(:danceability),
+          provenance:,
+          value: 1.0001
+        )
+      end.to raise_error(MoodProbe::MalformedOutputError, /danceability.*0.0.*1.0/)
+    end
+
+    it "normalizes an integer scalar to Float" do
+      value = described_class.new(
+        descriptor: registry.fetch(:danceability),
+        provenance:,
+        value: 1
+      )
+
+      expect(value.value).to eql(1.0)
+    end
   end
 
   describe MoodProbe::Vector do
@@ -96,6 +135,18 @@ RSpec.describe "MoodProbe typed values" do
       expect(analysis[:bpm]).to equal(bpm)
       expect(analysis.to_h).to eq(mood_happy: happy, bpm:)
       expect { analysis[:arousal_emomusic] }.to raise_error(KeyError)
+    end
+
+    describe MoodProbe::AnalysisBuilder do
+      it "normalizes string descriptor keys from Python output" do
+        analysis = described_class.new(registry:).call(
+          requested: [:mood_happy],
+          raw_values: { "mood_happy" => 0.5 }
+        )
+
+        expect(analysis.keys).to eq([:mood_happy])
+        expect(analysis[:mood_happy].value).to eq(0.5)
+      end
     end
   end
 

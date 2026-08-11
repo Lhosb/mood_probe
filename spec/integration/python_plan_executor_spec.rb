@@ -181,6 +181,28 @@ RSpec.describe "real Python plan executor seam" do
     end
   end
 
+  it "isolates a non-finite descriptor within a real subprocess batch" do
+    plan = planner.plan_for(descriptors: [:musicnn_embedding])
+
+    Dir.mktmpdir do |models_dir|
+      prepare_models(plan, models_dir)
+      backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
+
+      with_fake_essentia do
+        outcomes = backend.analyze_all(
+          %w[one.wav nan-vector.wav three.wav],
+          plan:
+        )
+
+        expect(outcomes.values_at(0, 2)).to all(
+          include("musicnn_embedding" => Array.new(200, 0.25))
+        )
+        expect(outcomes[1]).to be_a(MoodProbe::MalformedOutputError)
+        expect(outcomes[1].message).to include("musicnn_embedding[17]", "NaN")
+      end
+    end
+  end
+
   def prepare_models(plan, models_dir)
     Pathname(models_dir).mkpath
     plan.required_files.each do |filename|

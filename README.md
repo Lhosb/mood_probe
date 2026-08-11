@@ -35,9 +35,11 @@ if a deployment must admit local writers.
 ## Real Essentia verification
 
 The gem owns deterministic synthetic audio and full-precision goldens under
-`spec/fixtures/mood_probe`. Essentia has no arm64 macOS wheel, so run the real
-pipeline in an amd64 container. Use `bash -c`, not `bash -lc`; a login shell
-resets the image's virtualenv `PATH`.
+`spec/fixtures/mood_probe`. Essentia can run natively on arm64 macOS when the
+Python package and model files are installed. The bit-identical golden gate
+uses the amd64 container because native model output has small
+architecture-dependent floating-point differences and CI runs amd64. Use
+`bash -c`, not `bash -lc`; a login shell resets the image's virtualenv `PATH`.
 
 ```sh
 docker build --platform linux/amd64 \

@@ -165,6 +165,7 @@ module MoodProbe
         payload = JSON.generate(plan.to_h)
         return yield(["--plan-json", payload]) if payload.bytesize <= PLAN_ARGUMENT_LIMIT
 
+        # This is a system-tmpdir subprocess handoff, not a durable models_dir artifact.
         Tempfile.create(["mood-probe-plan", ".json"]) do |file|
           file.write(payload)
           file.flush

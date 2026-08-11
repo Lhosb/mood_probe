@@ -17,8 +17,23 @@ _GRAPH_ALGORITHMS = {
 _ALGORITHM_PARAMS = {
     "RhythmExtractor2013": {
         "method": str,
+        # Phase A pins the supported RhythmExtractor wire surface even though the
+        # default registry currently emits only method.
         "minTempo": (int, float),
         "maxTempo": (int, float),
+    }
+}
+_ALGORITHM_PARAM_DOMAINS = {
+    "RhythmExtractor2013": {
+        "method": frozenset({"multifeature", "degara"}),
+        "minTempo": (40, 180),
+        "maxTempo": (60, 250),
+    }
+}
+_ALGORITHM_PARAM_DEFAULTS = {
+    "RhythmExtractor2013": {
+        "minTempo": 40,
+        "maxTempo": 208,
     }
 }
 
@@ -35,6 +50,29 @@ def capabilities() -> dict:
 
 
 def validate_plan(plan: dict, models_dir: Path) -> dict:
+    validate_plan_keys(plan)
+    validate_schema_version(plan["schema_version"])
+    load_rates = validate_loads(plan["loads"])
+    graph_refs, graph_files, graph_rates = validate_graphs(
+        plan["graphs"], models_dir.resolve()
+    )
+    algorithm_refs, algorithm_rates = validate_algorithms(
+        plan["algorithms"], graph_refs
+    )
+
+    expected_rates = graph_rates | algorithm_rates
+    if load_rates != expected_rates:
+        raise PlanValidationError(
+            f"plan.loads sample rates {sorted(load_rates)} do not match required rates "
+            f"{sorted(expected_rates)}"
+        )
+
+    validate_emits(plan["emit"], graph_refs, algorithm_refs)
+    validate_required_files(plan["required_files"], graph_files)
+    return plan
+
+
+def validate_plan_keys(plan: dict) -> None:
     if not isinstance(plan, dict):
         raise PlanValidationError("plan must be an object")
     required_keys = {
@@ -54,7 +92,8 @@ def validate_plan(plan: dict, models_dir: Path) -> dict:
         extra = sorted(extra_keys)[0]
         raise PlanValidationError(f"plan.{extra} is not allowed")
 
-    version = plan.get("schema_version")
+
+def validate_schema_version(version) -> None:
     if (
         not isinstance(version, int)
         or isinstance(version, bool)
@@ -64,15 +103,19 @@ def validate_plan(plan: dict, models_dir: Path) -> dict:
             f"schema_version {version!r} is unsupported; expected {_SCHEMA_VERSION}"
         )
 
-    root = models_dir.resolve()
-    loads = require_list(plan["loads"], "plan.loads")
+
+def validate_loads(load_specs) -> set:
+    loads = require_list(load_specs, "plan.loads")
     load_rates = set()
     for index, load in enumerate(loads):
         location = f"loads[{index}]"
         require_keys(load, {"sample_rate"}, location)
         load_rates.add(require_positive_int(load["sample_rate"], f"{location}.sample_rate"))
+    return load_rates
 
-    graphs = require_list(plan["graphs"], "plan.graphs")
+
+def validate_graphs(graph_specs, root: Path) -> tuple[set, list, set]:
+    graphs = require_list(graph_specs, "plan.graphs")
     graph_refs = set()
     graph_files = []
     graph_rates = set()
@@ -117,8 +160,11 @@ def validate_plan(plan: dict, models_dir: Path) -> dict:
                 f"{location}.input must contain exactly one of audio or graph"
             )
         graph_refs.add(ref)
+    return graph_refs, graph_files, graph_rates
 
-    algorithms = require_list(plan["algorithms"], "plan.algorithms")
+
+def validate_algorithms(algorithm_specs, graph_refs: set) -> tuple[set, set]:
+    algorithms = require_list(algorithm_specs, "plan.algorithms")
     algorithm_refs = set()
     algorithm_rates = set()
     for index, algorithm in enumerate(algorithms):
@@ -134,19 +180,15 @@ def validate_plan(plan: dict, models_dir: Path) -> dict:
         name = algorithm.get("name")
         if name not in _ALGORITHM_PARAMS:
             raise PlanValidationError(f"{location}.name is not allowed: {name!r}")
-        validate_params(algorithm.get("params", {}), _ALGORITHM_PARAMS[name], location)
+        validate_params(algorithm.get("params", {}), name, location)
         algorithm_rates.add(
             require_positive_int(algorithm["sample_rate"], f"{location}.sample_rate")
         )
+    return algorithm_refs, algorithm_rates
 
-    expected_rates = graph_rates | algorithm_rates
-    if load_rates != expected_rates:
-        raise PlanValidationError(
-            f"plan.loads sample rates {sorted(load_rates)} do not match required rates "
-            f"{sorted(expected_rates)}"
-        )
 
-    emits = require_list(plan["emit"], "plan.emit")
+def validate_emits(emit_specs, graph_refs: set, algorithm_refs: set) -> None:
+    emits = require_list(emit_specs, "plan.emit")
     known_refs = graph_refs | algorithm_refs
     for index, emit_spec in enumerate(emits):
         location = f"emit[{index}]"
@@ -200,13 +242,13 @@ def validate_plan(plan: dict, models_dir: Path) -> dict:
         elif "reduce" in emit_spec:
             raise PlanValidationError(f"{location}.reduce is not allowed for algorithm output")
 
-    required_files = require_list(plan["required_files"], "plan.required_files")
+
+def validate_required_files(file_specs, graph_files: list) -> None:
+    required_files = require_list(file_specs, "plan.required_files")
     if not all(isinstance(filename, str) for filename in required_files):
         raise PlanValidationError("plan.required_files must contain only strings")
     if required_files != graph_files:
         raise PlanValidationError("plan.required_files must match graph files in order")
-
-    return plan
 
 
 def require_dict(value, location: str) -> dict:
@@ -269,10 +311,12 @@ def validate_model_path(filename, root: Path, location: str) -> None:
         raise PlanValidationError(f"{location} must identify a regular non-symlink file")
 
 
-def validate_params(params, allowed: dict, location: str) -> None:
+def validate_params(params, algorithm_name: str, location: str) -> None:
     if not isinstance(params, dict):
         raise PlanValidationError(f"{location}.params must be an object")
 
+    allowed = _ALGORITHM_PARAMS[algorithm_name]
+    domains = _ALGORITHM_PARAM_DOMAINS[algorithm_name]
     for key, value in params.items():
         parameter_location = f"{location}.params.{key}"
         expected = allowed.get(key)
@@ -280,6 +324,25 @@ def validate_params(params, allowed: dict, location: str) -> None:
             raise PlanValidationError(f"{parameter_location} is not allowed")
         if isinstance(value, bool) or not isinstance(value, expected):
             raise PlanValidationError(f"{parameter_location} has the wrong type")
+        if isinstance(value, float) and not math.isfinite(value):
+            raise PlanValidationError(f"{parameter_location} must be finite")
+
+        domain = domains[key]
+        if isinstance(domain, frozenset):
+            if value not in domain:
+                raise PlanValidationError(f"{parameter_location} is not supported")
+        elif not domain[0] <= value <= domain[1]:
+            raise PlanValidationError(
+                f"{parameter_location} must be within {domain[0]}..{domain[1]}"
+            )
+
+    defaults = _ALGORITHM_PARAM_DEFAULTS[algorithm_name]
+    min_tempo = params.get("minTempo", defaults["minTempo"])
+    max_tempo = params.get("maxTempo", defaults["maxTempo"])
+    if max_tempo <= min_tempo + 20:
+        raise PlanValidationError(
+            f"{location}.params maxTempo must exceed minTempo by more than 20 BPM"
+        )
 
 
 def load_plan(plan_json, plan_file, models_dir: Path):
