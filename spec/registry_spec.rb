@@ -120,6 +120,7 @@ RSpec.describe MoodProbe::Registry do
       "mood_happy-msd-musicnn-1.pb",
       "emomusic-msd-musicnn-2.pb"
     )
+    expect(registry.descriptors).not_to be_empty
     expect(registry.descriptors.map(&:produced_by))
       .to all(be_a(MoodProbe::FromModel).or(be_a(MoodProbe::FromAlgorithm)))
   end
@@ -161,6 +162,8 @@ RSpec.describe MoodProbe::Registry do
       expect { model.with(source_url: "https://example.test/model.pb") }
         .to raise_error(ArgumentError, /essentia\.upf\.edu/)
       expect { model.with(source_url: "https://essentia.upf.edu.evil.test/model.pb") }
+        .to raise_error(ArgumentError, /essentia\.upf\.edu/)
+      expect { model.with(source_url: "https://essentia.upf.edu@evil.test/model.pb") }
         .to raise_error(ArgumentError, /essentia\.upf\.edu/)
     end
 

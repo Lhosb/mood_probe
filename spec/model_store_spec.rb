@@ -70,13 +70,37 @@ RSpec.describe MoodProbe::ModelStore do
 
     Dir.mktmpdir do |dir|
       store = described_class.new(dir, registry:, downloader:)
-      allow(downloader).to receive(:download) do |url, path|
+      allow(downloader).to receive(:download) do |url, output|
         contents = url == model.source_url ? "expected" : "other"
-        File.binwrite(path, contents)
+        output.write(contents)
       end
 
       expect(store.fetch!).to be(true)
       expect(downloader).to have_received(:download).twice
+    end
+  end
+
+  it "does not follow a pre-planted predictable download symlink" do
+    response = Net::HTTPOK.new("1.1", "200", "OK")
+    response.instance_variable_set(:@read, true)
+    response.instance_variable_set(:@body, "network-payload")
+    allow(Net::HTTP).to receive(:get_response).and_return(response)
+
+    Dir.mktmpdir do |dir|
+      models_dir = Pathname(dir).join("models")
+      models_dir.mkpath
+      victim = Pathname(dir).join("victim")
+      victim.binwrite("original")
+      predictable = models_dir.join("model.pb.download")
+      predictable.make_symlink(victim)
+      scoped_registry = MoodProbe::Registry.new(models: [model], descriptors: [])
+
+      expect { described_class.new(models_dir, registry: scoped_registry).fetch! }
+        .to raise_error(MoodProbe::ConfigurationError, /digest mismatch/)
+      expect(victim.binread).to eq("original")
+      expect(predictable).to be_symlink
+      expect(models_dir.children.map(&:basename).map(&:to_s))
+        .to contain_exactly("model.pb.download")
     end
   end
 

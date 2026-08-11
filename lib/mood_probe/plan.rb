@@ -144,7 +144,7 @@ module MoodProbe
       return nil unless selection
 
       selected_class = selection.fetch(:class)
-      raise ConfigurationError, "#{model.id} output #{model.output_node} does not expose classes" unless model.classes
+      raise ConfigurationError, "no classes recorded for #{model.id} (output #{model.output_node})" unless model.classes
 
       index = model.classes.index(selected_class)
       raise ConfigurationError, "unknown class #{selected_class.inspect} for #{model.id}" unless index

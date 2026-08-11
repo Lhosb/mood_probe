@@ -52,7 +52,10 @@ RSpec.describe MoodProbe::Planner do
 
     expect do
       described_class.new(registry:).plan_for(descriptors: [:invalid_musicnn_class])
-    end.to raise_error(MoodProbe::ConfigurationError, /does not expose classes/)
+    end.to raise_error(
+      MoodProbe::ConfigurationError,
+      %r{no classes recorded for msd_musicnn_1.*output model/dense/BiasAdd}
+    )
   end
   # rubocop:enable Naming/VariableNumber
 

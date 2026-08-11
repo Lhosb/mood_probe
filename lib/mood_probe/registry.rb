@@ -43,6 +43,7 @@ module MoodProbe
 
       uri = URI.parse(source_url)
       raise ArgumentError, "source_url must use HTTPS" unless uri.is_a?(URI::HTTPS)
+      # This host restriction must become capability-aware when C.2's allow_custom_models lands.
       return if uri.host == "essentia.upf.edu"
 
       raise ArgumentError, "source_url must use the essentia.upf.edu host"
