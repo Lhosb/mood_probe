@@ -2,20 +2,20 @@ require "pathname"
 
 module MoodProbe
   class Result
-    attr_reader :path, :features, :error
+    attr_reader :path, :analysis, :error
 
-    def initialize(path:, features: nil, error: nil)
-      raise ArgumentError, "set exactly one of features or error" if features.nil? == error.nil?
+    def initialize(path:, analysis: nil, error: nil)
+      raise ArgumentError, "set exactly one of analysis or error" if analysis.nil? == error.nil?
       raise ArgumentError, "error must be a TrackError" if error && !error.is_a?(TrackError)
 
       @path = Pathname(path)
-      @features = features
+      @analysis = analysis
       @error = error
       freeze
     end
 
     def ok?
-      !features.nil?
+      !analysis.nil?
     end
   end
 end

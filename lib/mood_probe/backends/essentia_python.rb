@@ -75,32 +75,40 @@ module MoodProbe
         models_dir:,
         timeout_per_file: 60,
         python_executable: "python3",
-        command_runner: CommandRunner.new,
-        model_store: nil
+        command_runner: CommandRunner.new
       )
         @models_dir = Pathname(models_dir)
         @timeout_per_file = timeout_per_file
         @python_executable = python_executable.to_s
         @command_runner = command_runner
-        @model_store = model_store || ModelStore.new(@models_dir)
-        @verified = false
       end
 
-      def verify!
-        return true if @verified
+      def preflight_environment!
+        result = run_command(
+          [python_executable, "-c", "import essentia.standard"],
+          timeout: STARTUP_GRACE
+        )
+        raise_for_fatal_exit!(result) || true
+      rescue CommandTimeout
+        raise BackendError, "Essentia environment preflight timed out"
+      end
 
-        model_store.verify!
+      def preflight_plan!(plan)
+        return true if plan.graphs.empty?
+
         result = run_command(
           [python_executable, SCRIPT_PATH.to_s, "--verify", "--models-dir", models_dir.to_s],
           timeout: command_timeout
         )
         raise_for_fatal_exit!(result)
-        @verified = true
+        true
       rescue CommandTimeout
-        raise BackendError, "Essentia model preflight timed out"
+        raise BackendError, "Essentia plan preflight timed out"
       end
 
-      def analyze(path)
+      def analyze(path, plan:)
+        raise ArgumentError, "plan must be a MoodProbe::Plan" unless plan.is_a?(Plan)
+
         pathname = Pathname(path)
         result = run_command(
           [python_executable, SCRIPT_PATH.to_s, pathname.to_s, "--models-dir", models_dir.to_s],
@@ -116,7 +124,7 @@ module MoodProbe
 
       private
 
-      attr_reader :models_dir, :timeout_per_file, :python_executable, :command_runner, :model_store
+      attr_reader :models_dir, :timeout_per_file, :python_executable, :command_runner
 
       def command_timeout
         STARTUP_GRACE + timeout_per_file

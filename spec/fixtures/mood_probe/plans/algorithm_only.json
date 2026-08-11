@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "loads": [
+    {
+      "sample_rate": 44100
+    }
+  ],
+  "graphs": [],
+  "algorithms": [
+    {
+      "ref": "a0",
+      "name": "RhythmExtractor2013",
+      "params": {
+        "method": "multifeature"
+      },
+      "sample_rate": 44100
+    }
+  ],
+  "emit": [
+    {
+      "id": "bpm",
+      "kind": "scalar",
+      "from": "a0",
+      "take": {
+        "output": "bpm"
+      }
+    }
+  ],
+  "required_files": []
+}

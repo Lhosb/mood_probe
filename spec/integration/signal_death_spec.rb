@@ -46,21 +46,19 @@ end
 
 RSpec.describe "signal-killed backend isolation" do
   it "keeps siblings aligned when one real child dies by signal" do
-    model_store = instance_double(MoodProbe::ModelStore, verify!: true)
     backend = MoodProbe::Backends::EssentiaPython.new(
       models_dir: "/models",
-      command_runner: SignalDeathSpec::Runner.new,
-      model_store:
+      command_runner: SignalDeathSpec::Runner.new
     )
-    extractor = MoodProbe::Extractor.new(models_dir: "/models", backend:)
+    plan = MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
+                             .plan_for(descriptors: [:mood_happy])
     paths = %w[one.wav two.wav signal.wav four.wav]
 
-    results = extractor.analyze_all(paths)
+    results = paths.map { |path| backend.analyze(path, plan:) }
 
-    expect(results.map(&:path)).to eq(paths.map { |path| Pathname(path) })
-    expect(results.map(&:ok?)).to eq([true, true, false, true])
-    expect(results[2].error).to be_a(MoodProbe::BackendProcessError)
-    expect(results[2].error.message).to include("signal 9")
-    expect(results.values_at(0, 1, 3).map { |result| result.features.to_h[:valence] }).to eq([0.1, 0.2, 0.4])
+    expect(results[2]).to be_a(MoodProbe::BackendProcessError)
+    expect(results[2].message).to include("signal 9")
+    expect(results.values_at(0, 1, 3).map { |result| result.fetch("valence") })
+      .to eq([0.1, 0.2, 0.4])
   end
 end

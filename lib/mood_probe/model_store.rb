@@ -32,26 +32,31 @@ module MoodProbe
       end
     end
 
-    def initialize(models_dir, registry: ModelRegistry, downloader: Downloader.new)
+    def initialize(models_dir, registry: Registry.default, downloader: Downloader.new)
       @models_dir = Pathname(models_dir)
       @registry = registry
       @downloader = downloader
     end
 
-    def verify!
-      registry.models.each { |model| verify_model!(model) }
+    def verify!(filenames:)
+      filenames.each { |filename| verify_model!(model_for(filename)) }
       true
     end
 
     def fetch!
       models_dir.mkpath
       registry.models.each { |model| fetch_model!(model) }
-      verify!
+      verify!(filenames: registry.models.map(&:filename))
     end
 
     private
 
     attr_reader :models_dir, :registry, :downloader
+
+    def model_for(filename)
+      registry.models.find { |model| model.filename == filename } ||
+        raise(ConfigurationError, "unknown model: #{filename}")
+    end
 
     def verify_model!(model)
       path = models_dir.join(model.filename)
