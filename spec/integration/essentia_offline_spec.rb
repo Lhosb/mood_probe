@@ -88,6 +88,13 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
       module = importlib.util.module_from_spec(spec)
       spec.loader.exec_module(module)
       algorithm = es.RhythmExtractor2013()
+      def construction_result(**params):
+          try:
+              es.RhythmExtractor2013(**params)
+              return "accepted"
+          except RuntimeError:
+              return "rejected"
+
       declared_types = {}
       for key, expected in module._ALGORITHM_PARAMS["RhythmExtractor2013"].items():
           declared_types[key] = (
@@ -98,18 +105,24 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
       domains = {}
       for key, domain in module._ALGORITHM_PARAM_DOMAINS["RhythmExtractor2013"].items():
           domains[key] = sorted(domain) if isinstance(domain, frozenset) else list(domain)
-      try:
-          es.RhythmExtractor2013(minTempo=180, maxTempo=199)
-          interval_19 = "accepted"
-      except RuntimeError:
-          interval_19 = "rejected"
-      try:
-          es.RhythmExtractor2013(minTempo=180, maxTempo=200)
-          interval_20 = "accepted"
-      except RuntimeError:
-          interval_20 = "rejected"
+      # Construction discriminates at every range edge, so __doc__ below is
+      # corroboration. Integer probes record both sides of every enforced range:
+      # min low 39/40, min high 181/180, max low 59/60, max high 251/250.
+      construction_probes = {
+          "min_low_outside_39": construction_result(minTempo=39),
+          "min_low_inside_40": construction_result(minTempo=40),
+          "min_high_outside_181": construction_result(minTempo=181),
+          "min_high_inside_180": construction_result(minTempo=180),
+          "max_low_outside_59": construction_result(minTempo=40, maxTempo=59),
+          "max_low_inside_60": construction_result(minTempo=40, maxTempo=60),
+          "max_high_outside_251": construction_result(maxTempo=251),
+          "max_high_inside_250": construction_result(maxTempo=250),
+          "interval_19": construction_result(minTempo=180, maxTempo=199),
+          "interval_20": construction_result(minTempo=180, maxTempo=200),
+      }
       print(json.dumps({
           "essentia_version": essentia.__version__,
+          "declared_essentia_version": module._ESSENTIA_VERSION,
           "whitelist": sorted(module._ALGORITHM_PARAMS["RhythmExtractor2013"]),
           "actual": sorted(algorithm.parameterNames()),
           "declared_types": declared_types,
@@ -125,8 +138,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
           },
           "domains": domains,
           "documentation": algorithm.__doc__,
-          "interval_19": interval_19,
-          "interval_20": interval_20,
+          "construction_probes": construction_probes,
       }))
     PYTHON
     stdout, stderr, status = Open3.capture3(
@@ -136,7 +148,9 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
 
     expect(status).to be_success, stderr
     expect(parameters.fetch("whitelist") - parameters.fetch("actual")).to be_empty
-    expect(parameters.fetch("essentia_version")).to eq("2.1-beta6-dev")
+    expect(parameters.fetch("declared_essentia_version")).to eq(
+      parameters.fetch("essentia_version")
+    )
     expect(parameters.fetch("declared_types")).to eq(parameters.fetch("actual_types"))
     expect(parameters.fetch("declared_defaults")).to eq(parameters.fetch("actual_defaults"))
     expect(parameters.fetch("domains")).to eq(
@@ -149,7 +163,15 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
       "integer ∈ [60,250]",
       "string ∈ {multifeature,degara}"
     )
-    expect(parameters).to include(
+    expect(parameters.fetch("construction_probes")).to eq(
+      "min_low_outside_39" => "rejected",
+      "min_low_inside_40" => "accepted",
+      "min_high_outside_181" => "rejected",
+      "min_high_inside_180" => "accepted",
+      "max_low_outside_59" => "rejected",
+      "max_low_inside_60" => "accepted",
+      "max_high_outside_251" => "rejected",
+      "max_high_inside_250" => "accepted",
       "interval_19" => "rejected",
       "interval_20" => "accepted"
     )

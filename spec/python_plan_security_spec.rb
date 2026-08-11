@@ -306,6 +306,7 @@ RSpec.describe "Python plan security boundary" do
   it "accepts every declared RhythmExtractor2013 parameter type before importing Essentia" do
     valid_params = [
       { "method" => "multifeature", "minTempo" => 40, "maxTempo" => 200 },
+      { "method" => "multifeature", "minTempo" => 40, "maxTempo" => 60 },
       { "method" => "degara", "minTempo" => 180, "maxTempo" => 200 }
     ]
 

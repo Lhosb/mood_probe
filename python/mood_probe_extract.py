@@ -9,6 +9,10 @@ import sys
 from pathlib import Path
 
 _SCHEMA_VERSION = 1
+# Development version string; does not uniquely identify a build. This
+# cross-check follows whatever library is installed. See
+# https://github.com/Lhosb/mood_probe/issues/3.
+_ESSENTIA_VERSION = "2.1-beta6-dev"
 _MODEL_FILENAME = re.compile(r"^[A-Za-z0-9._-]+\.pb$")
 _GRAPH_ALGORITHMS = {
     "TensorflowPredictMusiCNN",
@@ -31,8 +35,9 @@ _ALGORITHM_PARAM_DOMAINS = {
     "RhythmExtractor2013": {
         "method": frozenset({"multifeature", "degara"}),
         "minTempo": (40, 180),
-        # The declared 60 lower bound is unreachable with minTempo >= 40 and
-        # the native 20 BPM minimum interval, but remains the upstream range.
+        # maxTempo 60 is reachable with minTempo 40 at the exact 20 BPM
+        # boundary. Keep its positive control: an earlier "unreachable" comment
+        # went stale when the interval rule changed.
         "maxTempo": (60, 250),
     }
 }
