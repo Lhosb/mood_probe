@@ -104,6 +104,63 @@ RSpec.describe MoodProbe::ModelStore do
     end
   end
 
+  it "rejects a symlinked models directory before downloading" do
+    downloader = instance_double(MoodProbe::ModelStore::Downloader)
+
+    Dir.mktmpdir do |dir|
+      outside = Pathname(dir).join("outside")
+      outside.mkpath
+      models_dir = Pathname(dir).join("models")
+      models_dir.make_symlink(outside)
+      scoped_registry = MoodProbe::Registry.new(models: [model], descriptors: [])
+
+      expect(downloader).not_to receive(:download)
+      expect do
+        described_class.new(models_dir, registry: scoped_registry, downloader:).fetch!
+      end.to raise_error(MoodProbe::ConfigurationError, /models directory.*symlink/)
+      expect(outside.children).to be_empty
+    end
+  end
+
+  it "rejects a shared-writable models directory before downloading" do
+    downloader = instance_double(MoodProbe::ModelStore::Downloader)
+
+    Dir.mktmpdir do |dir|
+      models_dir = Pathname(dir).join("models")
+      models_dir.mkpath
+      models_dir.chmod(0o777)
+      scoped_registry = MoodProbe::Registry.new(models: [model], descriptors: [])
+
+      expect(downloader).not_to receive(:download)
+      expect do
+        described_class.new(models_dir, registry: scoped_registry, downloader:).fetch!
+      end.to raise_error(MoodProbe::ConfigurationError, /must not be group- or world-writable/)
+    ensure
+      models_dir&.chmod(0o700) if models_dir&.exist?
+    end
+  end
+
+  it "does not install a replacement swapped under the opened temporary file" do
+    downloader = instance_double(MoodProbe::ModelStore::Downloader)
+
+    Dir.mktmpdir do |dir|
+      models_dir = Pathname(dir).join("models")
+      scoped_registry = MoodProbe::Registry.new(models: [model], descriptors: [])
+      allow(downloader).to receive(:download) do |_url, output|
+        output.write("expected")
+        path = Pathname(output.path)
+        path.delete
+        path.binwrite("replacement")
+      end
+
+      expect do
+        described_class.new(models_dir, registry: scoped_registry, downloader:).fetch!
+      end.to raise_error(MoodProbe::ConfigurationError, /temporary model file was replaced/)
+      expect(models_dir.join("model.pb")).not_to exist
+      expect(models_dir.children).to be_empty
+    end
+  end
+
   describe MoodProbe::ModelStore::Downloader do
     it "rejects an HTTP redirect before following it" do
       redirect = Net::HTTPFound.new("1.1", "302", "Found")

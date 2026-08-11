@@ -1,4 +1,5 @@
 require "digest"
+require "fileutils"
 require "net/http"
 require "pathname"
 require "securerandom"
@@ -6,18 +7,25 @@ require "uri"
 
 module MoodProbe
   class ModelStore
+    # Keeping every model-root filesystem operation here gives the security boundary one audit point.
+    # rubocop:disable Metrics/ClassLength
     class Files
+      Temporary = Data.define(:path, :file, :device, :inode)
+
       CREATE_FLAGS = File::RDWR | File::CREAT | File::EXCL | File::NOFOLLOW
       READ_FLAGS = File::RDONLY | File::NOFOLLOW
       READ_SIZE = 16 * 1024
       TEMP_ATTEMPTS = 10
 
       def initialize(root)
-        @root = Pathname(root).expand_path
+        @configured_root = Pathname(root).expand_path
+        @root = nil
+        @root_identity = nil
       end
 
       def ensure_directory!
-        root.mkpath
+        FileUtils.mkdir_p(configured_root, mode: 0o700)
+        validate_root!
       end
 
       def digest(filename)
@@ -37,8 +45,10 @@ module MoodProbe
         ensure_directory!
 
         TEMP_ATTEMPTS.times do
-          path = root.join(".#{filename}.#{SecureRandom.hex(16)}.download")
-          return [path, File.open(path, CREATE_FLAGS, 0o600)]
+          path = validated_root.join(".#{filename}.#{SecureRandom.hex(16)}.download")
+          file = File.new(path, CREATE_FLAGS, 0o600)
+          stat = file.stat
+          return Temporary.new(path:, file:, device: stat.dev, inode: stat.ino)
         rescue Errno::EEXIST, Errno::ELOOP
           next
         end
@@ -57,24 +67,80 @@ module MoodProbe
       end
 
       def replace(temporary, filename)
-        File.rename(temporary, path_for(filename))
+        stat = temporary.path.lstat
+        unless stat.file? && !stat.symlink? &&
+               stat.dev == temporary.device && stat.ino == temporary.inode
+          raise ConfigurationError, "temporary model file was replaced before installation"
+        end
+
+        File.rename(temporary.path, path_for(filename))
+      rescue Errno::ENOENT
+        raise ConfigurationError, "temporary model file was replaced before installation"
       end
 
       def delete(temporary)
-        temporary&.delete if temporary&.exist?
+        return unless temporary
+        return unless temporary.path.exist? || temporary.path.symlink?
+
+        temporary.path.delete
       end
 
       private
 
-      attr_reader :root
+      attr_reader :configured_root, :root, :root_identity
 
       def path_for(filename)
-        path = root.join(filename).expand_path
-        return path if path.dirname == root && path.basename.to_s == filename
+        directory = validated_root
+        path = directory.join(filename).expand_path
+        return path if path.dirname == directory && path.basename.to_s == filename
 
         raise ConfigurationError, "model path escapes models directory: #{filename}"
       end
+
+      def validated_root
+        validate_root!
+        root
+      end
+
+      def validate_root!
+        stat = configured_root.lstat
+        validate_root_type!(stat)
+        validate_root_permissions!(stat)
+
+        canonical = configured_root.realpath
+        identity = [stat.dev, stat.ino]
+        validate_root_identity!(canonical, identity)
+
+        @root = canonical
+        @root_identity = identity
+      rescue Errno::ENOENT
+        raise ConfigurationError, "missing models directory: #{configured_root}"
+      end
+
+      def validate_root_type!(stat)
+        raise ConfigurationError, "models directory must not be a symlink: #{configured_root}" if stat.symlink?
+        return if stat.directory?
+
+        raise ConfigurationError, "models path must be a directory: #{configured_root}"
+      end
+
+      def validate_root_permissions!(stat)
+        unless stat.uid == Process.euid
+          raise ConfigurationError, "models directory must be owned by the current user: #{configured_root}"
+        end
+        return if stat.mode.nobits?(0o022)
+
+        raise ConfigurationError, "models directory must not be group- or world-writable: #{configured_root}"
+      end
+
+      def validate_root_identity!(canonical, identity)
+        return unless root_identity
+        return if root_identity == identity && root == canonical
+
+        raise ConfigurationError, "models directory was replaced during use: #{configured_root}"
+      end
     end
+    # rubocop:enable Metrics/ClassLength
 
     class Downloader
       REDIRECT_LIMIT = 5
@@ -137,7 +203,8 @@ module MoodProbe
     end
 
     def fetch_model!(model)
-      temporary, output = model_files.create_temporary(model.filename)
+      temporary = model_files.create_temporary(model.filename)
+      output = temporary.file
 
       downloader.download(model.source_url, output)
       unless model_files.digest_io(output) == model.sha256
