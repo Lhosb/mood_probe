@@ -20,6 +20,8 @@ _VALENCE_AROUSAL_MODEL_FILENAME = "emomusic-msd-musicnn-2.pb"
 _VALENCE_AROUSAL_OUTPUT_NODE = "model/Identity"
 
 
+# Canonicalise/check/open for hostile wire-data paths is defence in depth, not Ruby-to-Python inode
+# binding; check-then-open is TOCTOU. See https://github.com/Lhosb/mood_probe/issues/2.
 def load_models(models_dir: Path):
     import essentia.standard as es
 

@@ -105,6 +105,8 @@ module MoodProbe
 
       def detect_root_misconfiguration!
         stat = configured_root.lstat
+        # Keep type before permissions: symlink modes differ between Linux CI and macOS,
+        # so reordering can change the error on CI without failing locally.
         detect_root_type_misconfiguration!(stat)
         detect_root_permission_misconfiguration!(stat)
 
