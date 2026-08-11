@@ -39,7 +39,9 @@ module MoodProbe
     end
 
     def validate_source_url!
-      uri = URI.parse(source_url.to_s)
+      raise ArgumentError, "source_url must be a String" unless source_url.is_a?(String)
+
+      uri = URI.parse(source_url)
       raise ArgumentError, "source_url must use HTTPS" unless uri.is_a?(URI::HTTPS)
       return if uri.host == "essentia.upf.edu"
 
@@ -49,7 +51,9 @@ module MoodProbe
     end
 
     def validate_integrity_metadata!
-      raise ArgumentError, "sha256 must be a lowercase SHA-256 digest" unless /\A[0-9a-f]{64}\z/.match?(sha256.to_s)
+      unless sha256.is_a?(String) && /\A[0-9a-f]{64}\z/.match?(sha256)
+        raise ArgumentError, "sha256 must be a String containing a lowercase SHA-256 digest"
+      end
       return if byte_length.is_a?(Integer) && byte_length.positive?
 
       raise ArgumentError, "byte_length must be a positive Integer"

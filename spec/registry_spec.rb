@@ -142,7 +142,8 @@ RSpec.describe MoodProbe::Registry do
       "../escaped.pb" => /bare \.pb basename/,
       "/absolute.pb" => /bare \.pb basename/,
       "nested/model.pb" => /bare \.pb basename/,
-      "..pb" => /bare \.pb basename/
+      "..pb" => /bare \.pb basename/,
+      "model.bin" => /bare \.pb basename/
     }.each do |filename, message|
       it "rejects unsafe filename #{filename.inspect}" do
         expect { model.with(filename:) }.to raise_error(ArgumentError, message)
@@ -152,17 +153,27 @@ RSpec.describe MoodProbe::Registry do
     it "rejects non-HTTPS model sources" do
       expect { model.with(source_url: "http://essentia.upf.edu/model.pb") }
         .to raise_error(ArgumentError, /HTTPS/)
+      expect { model.with(source_url: :"https://essentia.upf.edu/model.pb") }
+        .to raise_error(ArgumentError, /String/)
     end
 
     it "rejects model sources outside the Essentia host" do
       expect { model.with(source_url: "https://example.test/model.pb") }
         .to raise_error(ArgumentError, /essentia\.upf\.edu/)
+      expect { model.with(source_url: "https://essentia.upf.edu.evil.test/model.pb") }
+        .to raise_error(ArgumentError, /essentia\.upf\.edu/)
     end
 
     it "requires a SHA-256 digest and positive byte length" do
       expect { model.with(sha256: nil) }.to raise_error(ArgumentError, /sha256/)
+      expect { model.with(sha256: "A" * 64) }.to raise_error(ArgumentError, /sha256/)
+      expect { model.with(sha256: "a" * 63) }.to raise_error(ArgumentError, /sha256/)
+      expect { model.with(sha256: ("a" * 64).to_sym) }
+        .to raise_error(ArgumentError, /sha256.*String/)
       expect { model.with(byte_length: nil) }.to raise_error(ArgumentError, /byte_length/)
       expect { model.with(byte_length: 0) }.to raise_error(ArgumentError, /byte_length/)
+      expect { model.with(byte_length: -1) }.to raise_error(ArgumentError, /byte_length/)
+      expect { model.with(byte_length: 1.5) }.to raise_error(ArgumentError, /byte_length/)
     end
   end
   # rubocop:enable Naming/VariableNumber
