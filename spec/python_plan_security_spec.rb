@@ -149,23 +149,26 @@ RSpec.describe "Python plan security boundary" do
     end
   end
 
-  {
-    "method" => 1,
-    "maxTempo" => "200",
-    "minTempo" => "40",
-    "maxTempo-bool" => true,
-    "minTempo-bool" => false
-  }.each do |key, invalid_value|
-    parameter = key.delete_suffix("-bool")
-
-    it "rejects the wrong value type for the #{parameter} algorithm parameter" do
+  [
+    ["method", 1],
+    %w[maxTempo 200],
+    %w[minTempo 40],
+    ["maxTempo", 208.0],
+    ["minTempo", 40.0],
+    ["maxTempo", true],
+    ["minTempo", false]
+  ].each do |parameter, invalid_value|
+    it "rejects #{invalid_value.inspect} as the wrong type for #{parameter}" do
       Dir.mktmpdir do |dir|
         sentinel = Pathname(dir).join("imported")
         plan = deep_merge_algorithm(params: { parameter => invalid_value })
         _stdout, stderr, status = run_plan(plan, dir:, sentinel:)
 
         expect(status.exitstatus).to eq(2)
-        expect(stderr).to include("algorithms[0].params.#{parameter}")
+        expect(stderr).to include(
+          "algorithms[0].params.#{parameter}",
+          "has the wrong type"
+        )
         expect(sentinel).not_to exist
       end
     end
@@ -185,15 +188,13 @@ RSpec.describe "Python plan security boundary" do
     end
   end
 
-  {
-    "method" => "unsupported",
-    "minTempo" => 39,
-    "minTempo-high" => 181,
-    "maxTempo" => 59,
-    "maxTempo-high" => 251
-  }.each do |key, invalid_value|
-    parameter = key.delete_suffix("-high")
-
+  [
+    ["method", "unsupported", "not supported"],
+    ["minTempo", 39, "must be within"],
+    ["minTempo", 181, "must be within"],
+    ["maxTempo", 59, "must be within"],
+    ["maxTempo", 251, "must be within"]
+  ].each do |parameter, invalid_value, reason|
     it "rejects an out-of-domain #{parameter} algorithm parameter" do
       Dir.mktmpdir do |dir|
         sentinel = Pathname(dir).join("imported")
@@ -201,20 +202,23 @@ RSpec.describe "Python plan security boundary" do
         _stdout, stderr, status = run_plan(plan, dir:, sentinel:)
 
         expect(status.exitstatus).to eq(2)
-        expect(stderr).to include("algorithms[0].params.#{parameter}")
+        expect(stderr).to include(
+          "algorithms[0].params.#{parameter}",
+          reason
+        )
         expect(sentinel).not_to exist
       end
     end
   end
 
-  it "rejects a tempo interval too narrow for RhythmExtractor2013" do
+  it "rejects a tempo interval below RhythmExtractor2013's native 20 BPM minimum" do
     Dir.mktmpdir do |dir|
       sentinel = Pathname(dir).join("imported")
-      plan = deep_merge_algorithm(params: { "minTempo" => 40, "maxTempo" => 60 })
+      plan = deep_merge_algorithm(params: { "minTempo" => 180, "maxTempo" => 199 })
       _stdout, stderr, status = run_plan(plan, dir:, sentinel:)
 
       expect(status.exitstatus).to eq(2)
-      expect(stderr).to include("algorithms[0].params", "more than 20 BPM")
+      expect(stderr).to include("algorithms[0].params", "at least 20 BPM")
       expect(sentinel).not_to exist
     end
   end
@@ -301,8 +305,8 @@ RSpec.describe "Python plan security boundary" do
 
   it "accepts every declared RhythmExtractor2013 parameter type before importing Essentia" do
     valid_params = [
-      { "method" => "multifeature", "minTempo" => 40, "maxTempo" => 200.0 },
-      { "method" => "degara", "minTempo" => 180.0, "maxTempo" => 250 }
+      { "method" => "multifeature", "minTempo" => 40, "maxTempo" => 200 },
+      { "method" => "degara", "minTempo" => 180, "maxTempo" => 200 }
     ]
 
     valid_params.each do |params|

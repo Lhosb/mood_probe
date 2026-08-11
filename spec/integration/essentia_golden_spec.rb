@@ -6,6 +6,8 @@
 #     -c 'bundle exec ruby -Ilib exe/mood-probe --models-dir "$MOOD_PROBE_MODELS_DIR" models fetch &&
 #         bundle exec rspec spec/integration/essentia_golden_spec.rb --format documentation'
 # Goldens record the gem's native descriptor values.
+require_relative "../support/canonical_essentia_environment"
+
 RSpec.describe "MoodProbe Essentia goldens", :essentia do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
   let(:descriptors) do
@@ -32,6 +34,8 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
   end
 
   it "reproduces every native-value golden bit-identically" do
+    CanonicalEssentiaEnvironment.verify!
+
     audio_dir = fixture_root.join("audio")
     golden_dir = fixture_root.join("golden")
     names = %w[chirp clicks sine_440 white_noise]

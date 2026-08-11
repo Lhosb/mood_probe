@@ -40,6 +40,9 @@ Python package and model files are installed. The bit-identical golden gate
 uses the amd64 container because native model output has small
 architecture-dependent floating-point differences and CI runs amd64. Use
 `bash -c`, not `bash -lc`; a login shell resets the image's virtualenv `PATH`.
+The golden spec and generator refuse non-amd64 hosts before comparing or
+writing. `MOOD_PROBE_ALLOW_NON_CANONICAL=1` is available only for deliberate
+investigation; it must not be used to produce committed goldens.
 
 ```sh
 docker build --platform linux/amd64 \

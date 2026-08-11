@@ -79,6 +79,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
 
     harness = <<~PYTHON
       import importlib.util
+      import essentia
       import json
       import sys
       import essentia.standard as es
@@ -87,9 +88,45 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
       module = importlib.util.module_from_spec(spec)
       spec.loader.exec_module(module)
       algorithm = es.RhythmExtractor2013()
+      declared_types = {}
+      for key, expected in module._ALGORITHM_PARAMS["RhythmExtractor2013"].items():
+          declared_types[key] = (
+              "INTEGER" if expected is int else
+              "STRING" if expected is str else
+              "UNSUPPORTED"
+          )
+      domains = {}
+      for key, domain in module._ALGORITHM_PARAM_DOMAINS["RhythmExtractor2013"].items():
+          domains[key] = sorted(domain) if isinstance(domain, frozenset) else list(domain)
+      try:
+          es.RhythmExtractor2013(minTempo=180, maxTempo=199)
+          interval_19 = "accepted"
+      except RuntimeError:
+          interval_19 = "rejected"
+      try:
+          es.RhythmExtractor2013(minTempo=180, maxTempo=200)
+          interval_20 = "accepted"
+      except RuntimeError:
+          interval_20 = "rejected"
       print(json.dumps({
+          "essentia_version": essentia.__version__,
           "whitelist": sorted(module._ALGORITHM_PARAMS["RhythmExtractor2013"]),
           "actual": sorted(algorithm.parameterNames()),
+          "declared_types": declared_types,
+          "actual_types": {
+              name: algorithm.paramType(name)
+              for name in algorithm.parameterNames()
+          },
+          "declared_defaults": module._ALGORITHM_PARAM_DEFAULTS["RhythmExtractor2013"],
+          "actual_defaults": {
+              name: algorithm.paramValue(name)
+              for name in algorithm.parameterNames()
+              if name in module._ALGORITHM_PARAM_DEFAULTS["RhythmExtractor2013"]
+          },
+          "domains": domains,
+          "documentation": algorithm.__doc__,
+          "interval_19": interval_19,
+          "interval_20": interval_20,
       }))
     PYTHON
     stdout, stderr, status = Open3.capture3(
@@ -99,6 +136,23 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
 
     expect(status).to be_success, stderr
     expect(parameters.fetch("whitelist") - parameters.fetch("actual")).to be_empty
+    expect(parameters.fetch("essentia_version")).to eq("2.1-beta6-dev")
+    expect(parameters.fetch("declared_types")).to eq(parameters.fetch("actual_types"))
+    expect(parameters.fetch("declared_defaults")).to eq(parameters.fetch("actual_defaults"))
+    expect(parameters.fetch("domains")).to eq(
+      "method" => %w[degara multifeature],
+      "minTempo" => [40, 180],
+      "maxTempo" => [60, 250]
+    )
+    expect(parameters.fetch("documentation")).to include(
+      "integer ∈ [40,180]",
+      "integer ∈ [60,250]",
+      "string ∈ {multifeature,degara}"
+    )
+    expect(parameters).to include(
+      "interval_19" => "rejected",
+      "interval_20" => "accepted"
+    )
   end
 
   # Measured in the amd64 image: native=120.0335693359375, resampled=120.0335693359375,

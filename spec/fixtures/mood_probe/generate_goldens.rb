@@ -3,6 +3,9 @@ $LOAD_PATH.unshift File.expand_path("../../../lib", __dir__)
 require "json"
 require "mood_probe"
 require "pathname"
+require_relative "../../support/canonical_essentia_environment"
+
+CanonicalEssentiaEnvironment.verify!
 
 fixture_root = Pathname(__dir__)
 models_dir = ENV.fetch("MOOD_PROBE_MODELS_DIR", File.expand_path("~/.cache/mood_probe/models"))

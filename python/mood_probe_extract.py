@@ -19,14 +19,20 @@ _ALGORITHM_PARAMS = {
         "method": str,
         # Phase A pins the supported RhythmExtractor wire surface even though the
         # default registry currently emits only method.
-        "minTempo": (int, float),
-        "maxTempo": (int, float),
+        "minTempo": int,
+        "maxTempo": int,
     }
 }
+# Verified against Essentia 2.1-beta6-dev. The API exposes names, types, and
+# defaults directly; ranges/enums are exposed in RhythmExtractor2013.__doc__,
+# while the 20 BPM interval boundary is verified by construction in the
+# essentia_offline gate.
 _ALGORITHM_PARAM_DOMAINS = {
     "RhythmExtractor2013": {
         "method": frozenset({"multifeature", "degara"}),
         "minTempo": (40, 180),
+        # The declared 60 lower bound is unreachable with minTempo >= 40 and
+        # the native 20 BPM minimum interval, but remains the upstream range.
         "maxTempo": (60, 250),
     }
 }
@@ -322,10 +328,10 @@ def validate_params(params, algorithm_name: str, location: str) -> None:
         expected = allowed.get(key)
         if expected is None:
             raise PlanValidationError(f"{parameter_location} is not allowed")
-        if isinstance(value, bool) or not isinstance(value, expected):
-            raise PlanValidationError(f"{parameter_location} has the wrong type")
         if isinstance(value, float) and not math.isfinite(value):
             raise PlanValidationError(f"{parameter_location} must be finite")
+        if isinstance(value, bool) or not isinstance(value, expected):
+            raise PlanValidationError(f"{parameter_location} has the wrong type")
 
         domain = domains[key]
         if isinstance(domain, frozenset):
@@ -339,9 +345,9 @@ def validate_params(params, algorithm_name: str, location: str) -> None:
     defaults = _ALGORITHM_PARAM_DEFAULTS[algorithm_name]
     min_tempo = params.get("minTempo", defaults["minTempo"])
     max_tempo = params.get("maxTempo", defaults["maxTempo"])
-    if max_tempo <= min_tempo + 20:
+    if max_tempo - min_tempo < 20:
         raise PlanValidationError(
-            f"{location}.params maxTempo must exceed minTempo by more than 20 BPM"
+            f"{location}.params maxTempo must exceed minTempo by at least 20 BPM"
         )
 
 
