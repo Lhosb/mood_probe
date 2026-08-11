@@ -104,7 +104,7 @@ RSpec.describe MoodProbe::ModelStore do
     end
   end
 
-  it "rejects a symlinked models directory before downloading" do
+  it "detects a symlinked models directory misconfiguration before downloading" do
     downloader = instance_double(MoodProbe::ModelStore::Downloader)
 
     Dir.mktmpdir do |dir|
@@ -117,12 +117,12 @@ RSpec.describe MoodProbe::ModelStore do
       expect(downloader).not_to receive(:download)
       expect do
         described_class.new(models_dir, registry: scoped_registry, downloader:).fetch!
-      end.to raise_error(MoodProbe::ConfigurationError, /models directory.*symlink/)
+      end.to raise_error(MoodProbe::ConfigurationError, /misconfiguration.*symlink/)
       expect(outside.children).to be_empty
     end
   end
 
-  it "rejects a shared-writable models directory before downloading" do
+  it "detects a shared-writable models directory misconfiguration before downloading" do
     downloader = instance_double(MoodProbe::ModelStore::Downloader)
 
     Dir.mktmpdir do |dir|
@@ -134,7 +134,10 @@ RSpec.describe MoodProbe::ModelStore do
       expect(downloader).not_to receive(:download)
       expect do
         described_class.new(models_dir, registry: scoped_registry, downloader:).fetch!
-      end.to raise_error(MoodProbe::ConfigurationError, /must not be group- or world-writable/)
+      end.to raise_error(
+        MoodProbe::ConfigurationError,
+        /misconfiguration.*must not be group- or world-writable/
+      )
     ensure
       models_dir&.chmod(0o700) if models_dir&.exist?
     end

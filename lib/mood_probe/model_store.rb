@@ -7,7 +7,8 @@ require "uri"
 
 module MoodProbe
   class ModelStore
-    # Keeping every model-root filesystem operation here gives the security boundary one audit point.
+    # Pathname operations bind an inode at verify time, not backend reopen time; sound only while the
+    # models root is not attacker-writable: https://github.com/Lhosb/mood_probe/issues/2
     # rubocop:disable Metrics/ClassLength
     class Files
       Temporary = Data.define(:path, :file, :device, :inode)
@@ -25,7 +26,7 @@ module MoodProbe
 
       def ensure_directory!
         FileUtils.mkdir_p(configured_root, mode: 0o700)
-        validate_root!
+        detect_root_misconfiguration!
       end
 
       def digest(filename)
@@ -45,7 +46,7 @@ module MoodProbe
         ensure_directory!
 
         TEMP_ATTEMPTS.times do
-          path = validated_root.join(".#{filename}.#{SecureRandom.hex(16)}.download")
+          path = misconfiguration_checked_root.join(".#{filename}.#{SecureRandom.hex(16)}.download")
           file = File.new(path, CREATE_FLAGS, 0o600)
           stat = file.stat
           return Temporary.new(path:, file:, device: stat.dev, inode: stat.ino)
@@ -90,26 +91,26 @@ module MoodProbe
       attr_reader :configured_root, :root, :root_identity
 
       def path_for(filename)
-        directory = validated_root
+        directory = misconfiguration_checked_root
         path = directory.join(filename).expand_path
         return path if path.dirname == directory && path.basename.to_s == filename
 
         raise ConfigurationError, "model path escapes models directory: #{filename}"
       end
 
-      def validated_root
-        validate_root!
+      def misconfiguration_checked_root
+        detect_root_misconfiguration!
         root
       end
 
-      def validate_root!
+      def detect_root_misconfiguration!
         stat = configured_root.lstat
-        validate_root_type!(stat)
-        validate_root_permissions!(stat)
+        detect_root_type_misconfiguration!(stat)
+        detect_root_permission_misconfiguration!(stat)
 
         canonical = configured_root.realpath
         identity = [stat.dev, stat.ino]
-        validate_root_identity!(canonical, identity)
+        detect_root_replacement!(canonical, identity)
 
         @root = canonical
         @root_identity = identity
@@ -117,27 +118,31 @@ module MoodProbe
         raise ConfigurationError, "missing models directory: #{configured_root}"
       end
 
-      def validate_root_type!(stat)
-        raise ConfigurationError, "models directory must not be a symlink: #{configured_root}" if stat.symlink?
+      def detect_root_type_misconfiguration!(stat)
+        if stat.symlink?
+          raise ConfigurationError, "models directory misconfiguration: path is a symlink: #{configured_root}"
+        end
         return if stat.directory?
 
-        raise ConfigurationError, "models path must be a directory: #{configured_root}"
+        raise ConfigurationError, "models directory misconfiguration: path is not a directory: #{configured_root}"
       end
 
-      def validate_root_permissions!(stat)
+      def detect_root_permission_misconfiguration!(stat)
         unless stat.uid == Process.euid
-          raise ConfigurationError, "models directory must be owned by the current user: #{configured_root}"
+          raise ConfigurationError,
+                "models directory misconfiguration: must be owned by the current user: #{configured_root}"
         end
         return if stat.mode.nobits?(0o022)
 
-        raise ConfigurationError, "models directory must not be group- or world-writable: #{configured_root}"
+        raise ConfigurationError,
+              "models directory misconfiguration: must not be group- or world-writable: #{configured_root}"
       end
 
-      def validate_root_identity!(canonical, identity)
+      def detect_root_replacement!(canonical, identity)
         return unless root_identity
         return if root_identity == identity && root == canonical
 
-        raise ConfigurationError, "models directory was replaced during use: #{configured_root}"
+        raise ConfigurationError, "models directory changed during use: #{configured_root}"
       end
     end
     # rubocop:enable Metrics/ClassLength

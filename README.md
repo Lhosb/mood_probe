@@ -21,6 +21,16 @@ mood-probe --models-dir /path/to/models models verify
 mood-probe --models-dir /path/to/models analyze track.wav
 ```
 
+## Security notes
+
+`models_dir` is assumed to be a local directory that is not writable by an untrusted process or
+principal. Do not mount it from a shared volume that grants another workload write access: doing so
+silently revokes the threat-model assumption behind model verification. The gem detects common
+misconfigurations such as a symlinked or group/world-writable root, but its pathname-based checks do
+not bind the file Python later reopens to the inode Ruby verified. See
+[mood_probe#2](https://github.com/Lhosb/mood_probe/issues/2) for the identity-binding work required
+if a deployment must admit local writers.
+
 ## Real Essentia verification
 
 The gem owns deterministic synthetic audio and full-precision goldens under
