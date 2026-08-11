@@ -1,5 +1,15 @@
 RSpec.describe "committed golden fixtures" do
   let(:fixture_root) { Pathname(__dir__).join("fixtures/mood_probe") }
+  let(:descriptor_ids) do
+    %w[
+      valence_emomusic
+      arousal_emomusic
+      danceability
+      mood_acoustic
+      mood_relaxed
+      mood_happy
+    ]
+  end
 
   it "owns all audio and golden files needed by the Docker parity gate" do
     names = %w[chirp clicks sine_440 white_noise]
@@ -8,7 +18,7 @@ RSpec.describe "committed golden fixtures" do
     expect(fixture_root.join("audio/undecodable.m4a")).to exist
     names.each do |name|
       payload = JSON.parse(fixture_root.join("golden/#{name}.json").read)
-      expect(payload.keys.sort).to eq(MoodProbe::Features::HEADS.map(&:to_s).sort)
+      expect(payload.keys.sort).to eq(descriptor_ids.sort)
     end
   end
 end

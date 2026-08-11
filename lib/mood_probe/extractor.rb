@@ -55,12 +55,14 @@ module MoodProbe
       plan = plan_for(descriptors:)
       requested = descriptors.map(&:to_sym)
 
-      normalized_paths.map do |path|
-        outcome = backend.analyze(path, plan:)
-        if outcome.is_a?(TrackError)
-          Result.new(path:, error: outcome)
-        else
-          result_for_values(path, requested, outcome)
+      if backend.is_a?(Backends::EssentiaPython)
+        outcomes = backend.analyze_all(normalized_paths, plan:)
+        normalized_paths.zip(outcomes).map do |path, outcome|
+          result_for_outcome(path, requested, outcome)
+        end
+      else
+        normalized_paths.map do |path|
+          result_for_outcome(path, requested, backend.analyze(path, plan:))
         end
       end
     end
@@ -81,6 +83,12 @@ module MoodProbe
       Result.new(path:, analysis:)
     rescue MalformedOutputError => e
       Result.new(path:, error: e)
+    end
+
+    def result_for_outcome(path, requested, outcome)
+      return Result.new(path:, error: outcome) if outcome.is_a?(TrackError)
+
+      result_for_values(path, requested, outcome)
     end
   end
 end

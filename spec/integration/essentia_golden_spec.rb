@@ -5,9 +5,19 @@
 #     mood-probe-essentia \
 #     -c 'bundle exec ruby -Ilib exe/mood-probe --models-dir "$MOOD_PROBE_MODELS_DIR" models fetch &&
 #         bundle exec rspec spec/integration/essentia_golden_spec.rb --format documentation'
-# Goldens record the gem's post-clamp public Features output, not raw script output.
+# Goldens record the gem's native descriptor values.
 RSpec.describe "MoodProbe Essentia goldens", :essentia do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
+  let(:descriptors) do
+    %i[
+      valence_emomusic
+      arousal_emomusic
+      danceability
+      mood_acoustic
+      mood_relaxed
+      mood_happy
+    ]
+  end
   let(:fixture_root) do
     Pathname(ENV.fetch("MOOD_PROBE_FIXTURE_ROOT", root.join("spec/fixtures/mood_probe").to_s))
   end
@@ -21,22 +31,29 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
     )
   end
 
-  it "reproduces every Phase 1 golden bit-identically" do
+  it "reproduces every native-value golden bit-identically" do
     audio_dir = fixture_root.join("audio")
     golden_dir = fixture_root.join("golden")
     names = %w[chirp clicks sine_440 white_noise]
 
-    results = extractor.analyze_all(names.map { |name| audio_dir.join("#{name}.wav") })
+    results = extractor.analyze_all(
+      names.map { |name| audio_dir.join("#{name}.wav") },
+      descriptors:
+    )
 
     expect(results).to all(be_ok)
     results.zip(names).each do |result, name|
       expected = JSON.parse(golden_dir.join("#{name}.json").read, symbolize_names: true)
-      expect(result.features.to_h).to eq(expected)
+      actual = result.analysis.to_h.transform_values(&:value)
+      expect(actual).to eq(expected)
     end
   end
 
   it "returns a TrackError for the Phase 1 undecodable fixture" do
-    result = extractor.analyze_all([fixture_root.join("audio/undecodable.m4a")]).first
+    result = extractor.analyze_all(
+      [fixture_root.join("audio/undecodable.m4a")],
+      descriptors:
+    ).first
 
     expect(result).not_to be_ok
     expect(result.error).to be_a(MoodProbe::UnreadableAudioError)

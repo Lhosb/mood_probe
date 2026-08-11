@@ -21,6 +21,34 @@ jobs:
       - name: Run test suite
         run: bundle exec rspec
 
+  essentia_offline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build amd64 Essentia image
+        run: docker build --platform linux/amd64 -f Dockerfile.essentia -t mood-probe-essentia .
+
+      - name: Run model-free Essentia gates
+        run: |
+          mkdir -p tmp
+          docker run --rm --platform linux/amd64 \
+            --entrypoint bash \
+            -e ESSENTIA_SPECS=1 \
+            -e MOOD_PROBE_RESAMPLING_MEASUREMENT=/mood_probe/tmp/resampling_measurement.json \
+            -v "$PWD/tmp:/mood_probe/tmp" \
+            mood-probe-essentia \
+            -c 'bundle exec rspec spec/integration/essentia_offline_spec.rb'
+
+      - name: Upload resampling measurement
+        uses: actions/upload-artifact@v4
+        with:
+          name: resampling-measurement
+          path: tmp/resampling_measurement.json
+          if-no-files-found: error
+
   lint:
     runs-on: ubuntu-latest
 

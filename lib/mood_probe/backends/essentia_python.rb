@@ -1,12 +1,15 @@
 require "json"
 require "open3"
 require "pathname"
+require "tempfile"
 require "timeout"
 
 module MoodProbe
   module Backends
+    # rubocop:disable Metrics/ClassLength
     class EssentiaPython
       STARTUP_GRACE = 10
+      PLAN_ARGUMENT_LIMIT = 64 * 1024
       SCRIPT_PATH = Pathname(__dir__).join("../../../python/mood_probe_extract.py").expand_path
 
       class CommandTimeout < StandardError; end
@@ -94,14 +97,19 @@ module MoodProbe
       end
 
       def preflight_plan!(plan)
-        # Slice 2 cannot ask the legacy --verify command to validate algorithm-only plans because it
-        # loads all six models; Slice 3 replaces this with plan-aware algorithm construction.
-        return true if plan.graphs.empty?
-
-        result = run_command(
-          [python_executable, SCRIPT_PATH.to_s, "--verify", "--models-dir", models_dir.to_s],
-          timeout: command_timeout
-        )
+        result = with_plan_arguments(plan) do |plan_arguments|
+          run_command(
+            [
+              python_executable,
+              SCRIPT_PATH.to_s,
+              "--verify",
+              "--models-dir",
+              models_dir.to_s,
+              *plan_arguments
+            ],
+            timeout: command_timeout
+          )
+        end
         raise_for_fatal_exit!(result)
         true
       rescue CommandTimeout
@@ -109,19 +117,20 @@ module MoodProbe
       end
 
       def analyze(path, plan:)
+        analyze_all([path], plan:).first
+      end
+
+      def analyze_all(paths, plan:)
         raise ArgumentError, "plan must be a MoodProbe::Plan" unless plan.is_a?(Plan)
 
-        pathname = Pathname(path)
-        result = run_command(
-          [python_executable, SCRIPT_PATH.to_s, pathname.to_s, "--models-dir", models_dir.to_s],
-          timeout: command_timeout
-        )
-        return process_error(result, pathname) if result.exitstatus.nil? && result.termsig
+        pathnames = paths.map { |path| Pathname(path) }
+        result = run_analysis(pathnames, plan)
+        return process_errors(result, pathnames) if result.exitstatus.nil? && result.termsig
 
         raise_for_fatal_exit!(result)
-        parse_result(result.stdout, pathname)
+        parse_results(result.stdout, pathnames)
       rescue CommandTimeout
-        TimeoutError.new("Essentia extraction timed out for #{pathname}")
+        pathnames.map { |pathname| TimeoutError.new("Essentia extraction timed out for #{pathname}") }
       end
 
       private
@@ -130,6 +139,37 @@ module MoodProbe
 
       def command_timeout
         STARTUP_GRACE + timeout_per_file
+      end
+
+      def batch_command_timeout(path_count)
+        STARTUP_GRACE + (timeout_per_file * [path_count, 1].max)
+      end
+
+      def run_analysis(pathnames, plan)
+        with_plan_arguments(plan) do |plan_arguments|
+          run_command(
+            [
+              python_executable,
+              SCRIPT_PATH.to_s,
+              *pathnames.map(&:to_s),
+              "--models-dir",
+              models_dir.to_s,
+              *plan_arguments
+            ],
+            timeout: batch_command_timeout(pathnames.length)
+          )
+        end
+      end
+
+      def with_plan_arguments(plan)
+        payload = JSON.generate(plan.to_h)
+        return yield(["--plan-json", payload]) if payload.bytesize <= PLAN_ARGUMENT_LIMIT
+
+        Tempfile.create(["mood-probe-plan", ".json"]) do |file|
+          file.write(payload)
+          file.flush
+          yield(["--plan-file", file.path])
+        end
       end
 
       def run_command(command, timeout:)
@@ -157,20 +197,35 @@ module MoodProbe
         )
       end
 
-      def parse_result(output, requested_path)
-        lines = output.lines.reject { |line| line.strip.empty? }
-        raise BackendError, "Essentia backend returned no result for #{requested_path}" unless lines.one?
+      def process_errors(result, pathnames)
+        pathnames.map { |pathname| process_error(result, pathname) }
+      end
 
-        payload = JSON.parse(lines.first)
+      def parse_results(output, requested_paths)
+        lines = output.lines.reject { |line| line.strip.empty? }
+        validate_result_count!(lines, requested_paths)
+        lines.zip(requested_paths).map { |line, path| parse_line(line, path) }
+      rescue JSON::ParserError => e
+        raise BackendError, "Essentia backend returned invalid NDJSON: #{e.message}"
+      end
+
+      def validate_result_count!(lines, requested_paths)
+        return if lines.length == requested_paths.length
+
+        raise BackendError,
+              "Essentia backend returned #{lines.length} results for #{requested_paths.length} paths"
+      end
+
+      def parse_line(line, requested_path)
+        payload = JSON.parse(line)
         unless payload["path"] == requested_path.to_s
           raise BackendError, "Essentia backend returned a result for the wrong path"
         end
-        return error_from_payload(payload["error"]) if payload["error"]
-        raise BackendError, "Essentia backend omitted features for #{requested_path}" unless payload["features"]
 
-        payload["features"]
-      rescue JSON::ParserError => e
-        raise BackendError, "Essentia backend returned invalid NDJSON: #{e.message}"
+        return error_from_payload(payload["error"]) if payload["error"]
+        return payload["features"] if payload["features"]
+
+        raise BackendError, "Essentia backend omitted features for #{requested_path}"
       end
 
       def error_from_payload(error)
@@ -186,6 +241,7 @@ module MoodProbe
           raise BackendError, "Essentia backend returned unknown error type: #{error['type']}"
         end
       end
+      # rubocop:enable Metrics/ClassLength
     end
   end
 end

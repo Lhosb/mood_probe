@@ -11,9 +11,20 @@ extractor = MoodProbe::Extractor.new(
   python_executable: ENV.fetch("MOOD_PROBE_PYTHON", "python3")
 )
 
-# These goldens capture the gem's public, post-clamp Features output. Phase 3
-# separately compares the app's raw legacy path with this gem-backed path.
+descriptors = %i[
+  valence_emomusic
+  arousal_emomusic
+  danceability
+  mood_acoustic
+  mood_relaxed
+  mood_happy
+]
+
 %w[chirp clicks sine_440 white_noise].each do |name|
-  features = extractor.analyze(fixture_root.join("audio/#{name}.wav"))
-  fixture_root.join("golden/#{name}.json").write("#{JSON.pretty_generate(features.to_h)}\n")
+  analysis = extractor.analyze(
+    fixture_root.join("audio/#{name}.wav"),
+    descriptors:
+  )
+  values = analysis.to_h.transform_values(&:value)
+  fixture_root.join("golden/#{name}.json").write("#{JSON.pretty_generate(values)}\n")
 end

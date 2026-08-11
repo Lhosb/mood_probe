@@ -27,20 +27,40 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     )
   end
 
-  it "uses the current graph verification path for a model-backed plan" do
+  it "passes the resolved plan to Python for model-backed preflight" do
     allow(runner).to receive(:call).and_return(success)
 
     expect(backend.preflight_plan!(model_plan)).to be(true)
     expect(runner).to have_received(:call).with(
-      ["/custom/python", kind_of(String), "--verify", "--models-dir", "/models"],
+      [
+        "/custom/python",
+        kind_of(String),
+        "--verify",
+        "--models-dir",
+        "/models",
+        "--plan-json",
+        JSON.generate(model_plan.to_h)
+      ],
       timeout: 70
     )
   end
 
-  it "does not launch the current all-model verifier for an algorithm-only plan" do
-    expect(runner).not_to receive(:call)
+  it "passes algorithm-only plans to Python construction preflight" do
+    allow(runner).to receive(:call).and_return(success)
 
     expect(backend.preflight_plan!(algorithm_plan)).to be(true)
+    expect(runner).to have_received(:call).with(
+      [
+        "/custom/python",
+        kind_of(String),
+        "--verify",
+        "--models-dir",
+        "/models",
+        "--plan-json",
+        JSON.generate(algorithm_plan.to_h)
+      ],
+      timeout: 70
+    )
   end
 
   it "uses the injected Python executable and accepts a Pathname" do
@@ -54,9 +74,35 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
 
     expect(backend.analyze(Pathname("track.wav"), plan: model_plan)).to eq(valid_features)
     expect(runner).to have_received(:call).with(
-      ["/custom/python", kind_of(String), "track.wav", "--models-dir", "/models"],
+      [
+        "/custom/python",
+        kind_of(String),
+        "track.wav",
+        "--models-dir",
+        "/models",
+        "--plan-json",
+        JSON.generate(model_plan.to_h)
+      ],
       timeout: 70
     )
+  end
+
+  it "spills plans above 64 KiB to a temporary file and removes it" do
+    large_plan = model_plan.with(
+      emit: Array.new(2_000) { |index| model_plan.emit.first.merge(id: "mood_happy_#{index}") }
+    )
+    plan_path = nil
+    allow(runner).to receive(:call) do |command, timeout:|
+      plan_index = command.index("--plan-file")
+      plan_path = Pathname(command.fetch(plan_index + 1))
+
+      expect(timeout).to eq(70)
+      expect(JSON.parse(plan_path.read).fetch("emit").length).to eq(2_000)
+      success
+    end
+
+    expect(backend.preflight_plan!(large_plan)).to be(true)
+    expect(plan_path).not_to exist
   end
 
   it "maps per-file protocol errors to TrackError instances" do
@@ -191,7 +237,7 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     )
 
     expect { backend.analyze("track.wav", plan: model_plan) }
-      .to raise_error(MoodProbe::BackendError, /returned no result/)
+      .to raise_error(MoodProbe::BackendError, /returned 2 results for 1 paths/)
   end
 
   def success
@@ -200,11 +246,6 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
 
   def valid_features
     {
-      "valence" => 0.4,
-      "arousal" => 0.6,
-      "danceability" => 0.7,
-      "mood_acoustic" => 0.2,
-      "mood_relaxed" => 0.8,
       "mood_happy" => 0.5
     }
   end

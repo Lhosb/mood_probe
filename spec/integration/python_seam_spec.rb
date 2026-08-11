@@ -1,26 +1,26 @@
-RSpec.describe "real Python to Ruby legacy protocol seam" do
+RSpec.describe "real Python to Ruby plan protocol seam" do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
-  let(:backend) { MoodProbe::Backends::EssentiaPython.new(models_dir: "/models") }
+  let(:models_dir) { Pathname(Dir.mktmpdir) }
+  let(:backend) { MoodProbe::Backends::EssentiaPython.new(models_dir:) }
   let(:plan) do
     MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(descriptors: [:mood_happy])
+                      .plan_for(descriptors: %i[valence_emomusic arousal_emomusic mood_happy])
   end
 
   around do |example|
     original = ENV.fetch("PYTHONPATH", nil)
     ENV["PYTHONPATH"] = root.join("spec/support/fake_essentia").to_s
+    plan.required_files.each { |filename| models_dir.join(filename).binwrite("model") }
     example.run
   ensure
     ENV["PYTHONPATH"] = original
+    FileUtils.remove_entry(models_dir)
   end
 
-  it "parses the six current floats without changing the Python script" do
+  it "parses requested native descriptor values" do
     expect(backend.analyze("good-1.wav", plan:)).to eq(
-      "valence" => 0.4,
-      "arousal" => 0.6,
-      "danceability" => 0.7,
-      "mood_acoustic" => 0.2,
-      "mood_relaxed" => 0.8,
+      "valence_emomusic" => 4.2,
+      "arousal_emomusic" => 5.8,
       "mood_happy" => 0.5
     )
   end
@@ -31,8 +31,8 @@ RSpec.describe "real Python to Ruby legacy protocol seam" do
     end
 
     expect(outcomes[1]).to be_a(MoodProbe::InferenceError)
-    expect(outcomes.values_at(0, 2).map { |outcome| outcome.fetch("valence") })
-      .to eq([0.4, 0.4])
+    expect(outcomes.values_at(0, 2).map { |outcome| outcome.fetch("valence_emomusic") })
+      .to eq([4.2, 4.2])
   end
 
   it "keeps non-finite failures isolated between real subprocess calls" do
@@ -41,7 +41,7 @@ RSpec.describe "real Python to Ruby legacy protocol seam" do
     end
 
     expect(outcomes.values_at(1, 3)).to all(be_a(MoodProbe::MalformedOutputError))
-    expect(outcomes.values_at(0, 2).map { |outcome| outcome.fetch("valence") })
-      .to eq([0.4, 0.4])
+    expect(outcomes.values_at(0, 2).map { |outcome| outcome.fetch("valence_emomusic") })
+      .to eq([4.2, 4.2])
   end
 end
