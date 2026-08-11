@@ -42,6 +42,20 @@ RSpec.describe MoodProbe::Extractor do
     ).twice
   end
 
+  it "re-preflights for a different descriptor set of the same cardinality" do
+    extractor.verify!(descriptors: [:bpm])
+    extractor.verify!(descriptors: [:beat_confidence])
+
+    expect(backend).to have_received(:preflight_plan!).twice
+  end
+
+  it "preflights the environment before an empty descriptor memo hit" do
+    expect(extractor.verify!(descriptors: [])).to be(true)
+
+    expect(backend).to have_received(:preflight_environment!).once
+    expect(backend).not_to have_received(:preflight_plan!)
+  end
+
   it "does not memoize a failed environment preflight" do
     allow(backend).to receive(:preflight_environment!)
       .and_raise(MoodProbe::ConfigurationError, "missing Python")
@@ -111,6 +125,8 @@ RSpec.describe MoodProbe::Extractor do
       expect do
         extractor.analyze_all(%w[one.wav two.wav], descriptors: test_case.fetch(:requested))
       end.to raise_error(MoodProbe::SchemaError, test_case.fetch(:message))
+      expect(backend).to have_received(:analyze)
+        .with(Pathname("one.wav"), plan: kind_of(MoodProbe::Plan)).once
       expect(backend).not_to have_received(:analyze)
         .with(Pathname("two.wav"), plan: kind_of(MoodProbe::Plan))
     end

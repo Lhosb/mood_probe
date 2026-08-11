@@ -6,7 +6,8 @@ RSpec.describe MoodProbe::Planner do
   {
     "musicnn_only" => %i[mood_happy],
     "algorithm_only" => %i[bpm],
-    "mixed" => %i[bpm mood_happy]
+    "mixed" => %i[bpm mood_happy],
+    "emomusic" => %i[valence_emomusic]
   }.each do |fixture_name, descriptors|
     it "matches the committed #{fixture_name} plan fixture" do
       expected = JSON.parse(
@@ -22,10 +23,44 @@ RSpec.describe MoodProbe::Planner do
     expect(planner.plan_for(descriptors: [:bpm]).graphs).to be_empty
   end
 
-  it "resolves the inverted relaxed class by name" do
+  it "pins the current inverted relaxed projection pending the Phase B upstream JSON gate" do
     plan = planner.plan_for(descriptors: [:mood_relaxed])
 
     expect(plan.emit.fetch(0).fetch(:take)).to eq(index: 1)
+  end
+
+  # rubocop:disable Naming/VariableNumber
+  it "rejects class projection from the MusiCNN embedding output" do
+    descriptor = MoodProbe::Descriptor.new(
+      id: :invalid_musicnn_class,
+      kind: :scalar,
+      produced_by: MoodProbe::FromModel.new(
+        model: :msd_musicnn_1,
+        select: { class: "happy" }
+      ),
+      native_range: nil,
+      range_kind: :unbounded,
+      sanity_range: nil,
+      units: :unitless,
+      shape: nil,
+      notes: "Invalid projection used to pin the output contract."
+    )
+    registry = MoodProbe::Registry.new(
+      models: MoodProbe::Registry.default.models,
+      descriptors: [descriptor]
+    )
+
+    expect do
+      described_class.new(registry:).plan_for(descriptors: [:invalid_musicnn_class])
+    end.to raise_error(MoodProbe::ConfigurationError, /does not expose classes/)
+  end
+  # rubocop:enable Naming/VariableNumber
+
+  it "returns immutable required files" do
+    plan = planner.plan_for(descriptors: [:mood_happy])
+
+    expect(plan.required_files).to be_frozen
+    expect { plan.required_files << "extra.pb" }.to raise_error(FrozenError)
   end
 
   it "loads model and algorithm sample rates in dependency order" do

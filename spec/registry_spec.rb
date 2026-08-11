@@ -45,22 +45,11 @@ RSpec.describe MoodProbe::Registry do
     expect { descriptor.notes << " tampered" }.to raise_error(FrozenError)
   end
 
-  it "transcribes the MusiCNN model classes verbatim even though its descriptor selects the embedding" do
-    expect(registry.model(:msd_musicnn_1).classes).to eq(
-      [
-        "rock", "pop", "alternative", "indie", "electronic", "female vocalists", "dance",
-        "00s", "alternative rock", "jazz", "beautiful", "metal", "chillout",
-        "male vocalists", "classic rock", "soul", "indie rock", "Mellow", "electronica",
-        "80s", "folk", "90s", "chill", "instrumental", "punk", "oldies", "blues",
-        "hard rock", "ambient", "acoustic", "experimental", "female vocalist", "guitar",
-        "Hip-Hop", "70s", "party", "country", "easy listening", "sexy", "catchy", "funk",
-        "electro", "heavy metal", "Progressive rock", "60s", "rnb", "indie pop", "sad",
-        "House", "happy"
-      ]
-    )
+  it "does not attach classification labels to the MusiCNN embedding output" do
+    expect(registry.model(:msd_musicnn_1).classes).to be_nil
   end
 
-  it "transcribes upstream classes verbatim and selects scalar projections by class name" do
+  it "pins current head classes and their name-based selectors pending the Phase B upstream JSON gate" do
     expectations = {
       danceability: [%w[danceable not_danceable], "danceable"],
       mood_acoustic: [%w[acoustic non_acoustic], "acoustic"],
@@ -137,7 +126,44 @@ RSpec.describe MoodProbe::Registry do
 
   it "defines Series without registering any series descriptor" do
     expect(MoodProbe::Series).to be_a(Class)
+    expect(registry.descriptors).not_to be_empty
     expect(registry.descriptors).not_to include(have_attributes(kind: :series))
+  end
+
+  describe MoodProbe::Model do
+    subject(:model) { MoodProbe::Registry.default.model(:mood_happy_msd_musicnn_1) }
+
+    it "accepts the valid default model metadata" do
+      expect(model.filename).to eq("mood_happy-msd-musicnn-1.pb")
+      expect(model.source_url).to start_with("https://essentia.upf.edu/")
+    end
+
+    {
+      "../escaped.pb" => /bare \.pb basename/,
+      "/absolute.pb" => /bare \.pb basename/,
+      "nested/model.pb" => /bare \.pb basename/,
+      "..pb" => /bare \.pb basename/
+    }.each do |filename, message|
+      it "rejects unsafe filename #{filename.inspect}" do
+        expect { model.with(filename:) }.to raise_error(ArgumentError, message)
+      end
+    end
+
+    it "rejects non-HTTPS model sources" do
+      expect { model.with(source_url: "http://essentia.upf.edu/model.pb") }
+        .to raise_error(ArgumentError, /HTTPS/)
+    end
+
+    it "rejects model sources outside the Essentia host" do
+      expect { model.with(source_url: "https://example.test/model.pb") }
+        .to raise_error(ArgumentError, /essentia\.upf\.edu/)
+    end
+
+    it "requires a SHA-256 digest and positive byte length" do
+      expect { model.with(sha256: nil) }.to raise_error(ArgumentError, /sha256/)
+      expect { model.with(byte_length: nil) }.to raise_error(ArgumentError, /byte_length/)
+      expect { model.with(byte_length: 0) }.to raise_error(ArgumentError, /byte_length/)
+    end
   end
   # rubocop:enable Naming/VariableNumber
 end

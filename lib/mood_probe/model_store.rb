@@ -21,6 +21,8 @@ module MoodProbe
       private
 
       def request(uri, redirects_remaining)
+        raise BackendError, "model downloads require HTTPS: #{uri}" unless uri.is_a?(URI::HTTPS)
+
         response = Net::HTTP.get_response(uri)
         return response unless response.is_a?(Net::HTTPRedirection)
         raise BackendError, "too many redirects downloading #{uri}" if redirects_remaining.zero?
@@ -60,6 +62,7 @@ module MoodProbe
 
     def verify_model!(model)
       path = models_dir.join(model.filename)
+      raise ConfigurationError, "model path must not be a symlink: #{path}" if path.symlink?
       raise ConfigurationError, "missing model: #{path}" unless path.file?
       return if Digest::SHA256.file(path).hexdigest == model.sha256
 

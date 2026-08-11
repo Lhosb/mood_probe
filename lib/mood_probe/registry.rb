@@ -1,9 +1,12 @@
+require "uri"
+
 module MoodProbe
   Model = Data.define(
     :id,
     :filename,
     :sha256,
     :source_url,
+    # Streaming enforcement is tracked by https://github.com/Lhosb/mood_probe/issues/1.
     :byte_length,
     :license,
     :attribution,
@@ -17,7 +20,41 @@ module MoodProbe
     :classes,
     :reduction,
     :embedding
-  )
+  ) do
+    def initialize(**attributes)
+      super
+      validate_filename!
+      validate_source_url!
+      validate_integrity_metadata!
+    end
+
+    private
+
+    def validate_filename!
+      return if filename.is_a?(String) &&
+                /\A[A-Za-z0-9._-]+\.pb\z/.match?(filename) &&
+                !filename.include?("..")
+
+      raise ArgumentError, "filename must be a bare .pb basename without dot-dot"
+    end
+
+    def validate_source_url!
+      uri = URI.parse(source_url.to_s)
+      raise ArgumentError, "source_url must use HTTPS" unless uri.is_a?(URI::HTTPS)
+      return if uri.host == "essentia.upf.edu"
+
+      raise ArgumentError, "source_url must use the essentia.upf.edu host"
+    rescue URI::InvalidURIError
+      raise ArgumentError, "source_url must be a valid HTTPS URL"
+    end
+
+    def validate_integrity_metadata!
+      raise ArgumentError, "sha256 must be a lowercase SHA-256 digest" unless /\A[0-9a-f]{64}\z/.match?(sha256.to_s)
+      return if byte_length.is_a?(Integer) && byte_length.positive?
+
+      raise ArgumentError, "byte_length must be a positive Integer"
+    end
+  end
 
   FromModel = Data.define(:model, :select)
   FromAlgorithm = Data.define(:name, :output, :params, :sample_rate)
@@ -67,16 +104,7 @@ module MoodProbe
             algorithm: :tensorflow_predict_musicnn,
             input_node: "model/Placeholder",
             output_node: "model/dense/BiasAdd",
-            classes: [
-              "rock", "pop", "alternative", "indie", "electronic", "female vocalists", "dance",
-              "00s", "alternative rock", "jazz", "beautiful", "metal", "chillout",
-              "male vocalists", "classic rock", "soul", "indie rock", "Mellow", "electronica",
-              "80s", "folk", "90s", "chill", "instrumental", "punk", "oldies", "blues",
-              "hard rock", "ambient", "acoustic", "experimental", "female vocalist", "guitar",
-              "Hip-Hop", "70s", "party", "country", "easy listening", "sexy", "catchy", "funk",
-              "electro", "heavy metal", "Progressive rock", "60s", "rnb", "indie pop", "sad",
-              "House", "happy"
-            ],
+            classes: nil,
             embedding: nil
           ),
           model(

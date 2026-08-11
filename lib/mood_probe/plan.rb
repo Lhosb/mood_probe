@@ -44,7 +44,7 @@ module MoodProbe
         graphs: graph_plan(graph_models, graph_refs),
         algorithms:,
         emit: emit_plan(rows, graph_refs, algorithm_refs),
-        required_files: graph_models.map(&:filename)
+        required_files: graph_models.map(&:filename).freeze
       )
     end
 
@@ -144,6 +144,8 @@ module MoodProbe
       return nil unless selection
 
       selected_class = selection.fetch(:class)
+      raise ConfigurationError, "#{model.id} output #{model.output_node} does not expose classes" unless model.classes
+
       index = model.classes.index(selected_class)
       raise ConfigurationError, "unknown class #{selected_class.inspect} for #{model.id}" unless index
 

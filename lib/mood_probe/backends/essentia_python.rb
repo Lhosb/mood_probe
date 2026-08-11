@@ -94,6 +94,8 @@ module MoodProbe
       end
 
       def preflight_plan!(plan)
+        # Slice 2 cannot ask the legacy --verify command to validate algorithm-only plans because it
+        # loads all six models; Slice 3 replaces this with plan-aware algorithm construction.
         return true if plan.graphs.empty?
 
         result = run_command(

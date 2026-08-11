@@ -9,7 +9,8 @@ planner = MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
 plans = {
   musicnn_only: %i[mood_happy],
   algorithm_only: %i[bpm],
-  mixed: %i[bpm mood_happy]
+  mixed: %i[bpm mood_happy],
+  emomusic: %i[valence_emomusic]
 }
 
 plans.each do |name, descriptors|

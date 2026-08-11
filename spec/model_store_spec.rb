@@ -35,6 +35,18 @@ RSpec.describe MoodProbe::ModelStore do
     end
   end
 
+  it "rejects a symlink even when its target has the expected digest" do
+    Dir.mktmpdir do |dir|
+      target = File.join(dir, "target.pb")
+      link = File.join(dir, "model.pb")
+      File.binwrite(target, "expected")
+      File.symlink(target, link)
+
+      expect { described_class.new(dir, registry:).verify!(filenames: ["model.pb"]) }
+        .to raise_error(MoodProbe::ConfigurationError, /symlink/)
+    end
+  end
+
   it "rejects an unregistered requested filename" do
     Dir.mktmpdir do |dir|
       expect { described_class.new(dir, registry:).verify!(filenames: ["unknown.pb"]) }
@@ -65,6 +77,27 @@ RSpec.describe MoodProbe::ModelStore do
 
       expect(store.fetch!).to be(true)
       expect(downloader).to have_received(:download).twice
+    end
+  end
+
+  describe MoodProbe::ModelStore::Downloader do
+    it "rejects an HTTP redirect before following it" do
+      redirect = Net::HTTPFound.new("1.1", "302", "Found")
+      redirect["location"] = "http://127.0.0.1/private"
+      allow(Net::HTTP).to receive(:get_response).and_return(redirect)
+
+      Dir.mktmpdir do |dir|
+        destination = Pathname(dir).join("model.pb")
+
+        expect do
+          described_class.new.download(
+            "https://essentia.upf.edu/models/model.pb",
+            destination
+          )
+        end.to raise_error(MoodProbe::BackendError, /HTTPS/)
+      end
+
+      expect(Net::HTTP).to have_received(:get_response).once
     end
   end
 end
