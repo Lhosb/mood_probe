@@ -30,11 +30,11 @@ RSpec.describe "release CI" do
       "Verify model digests (upstream checksum drift)",
       "Run golden regression gate (our regression)"
     )
+    expect(job.fetch("runs-on")).to eq("ubuntu-24.04-arm")
     expect(commands).to include(
       "--platform linux/amd64",
       "goldens are amd64-canonical",
       "ESSENTIA_SPECS=1",
-      "TF_ENABLE_ONEDNN_OPTS=0",
       "spec/integration/essentia_golden_spec.rb",
       "status=$?",
       "exit \"$status\"",
