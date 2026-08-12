@@ -92,6 +92,7 @@ jobs:
               --user "$(id -u):$(id -g)" \
               -e ESSENTIA_SPECS=1 \
               -e MOOD_PROBE_MODELS_DIR=/models \
+              -e TF_ENABLE_ONEDNN_OPTS=0 \
               -v "$PWD/tmp/models:/models:ro" \
               mood-probe-essentia \
               -c '

@@ -34,6 +34,7 @@ RSpec.describe "release CI" do
       "--platform linux/amd64",
       "goldens are amd64-canonical",
       "ESSENTIA_SPECS=1",
+      "TF_ENABLE_ONEDNN_OPTS=0",
       "spec/integration/essentia_golden_spec.rb",
       "status=$?",
       "exit \"$status\"",
