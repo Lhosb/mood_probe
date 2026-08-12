@@ -35,6 +35,8 @@ RSpec.describe "release CI" do
       "goldens are amd64-canonical",
       "ESSENTIA_SPECS=1",
       "spec/integration/essentia_golden_spec.rb",
+      "status=$?",
+      "exit \"$status\"",
       "2 examples, 0 failures"
     )
     expect(commands.scan('--user "$(id -u):$(id -g)"').length).to eq(3)

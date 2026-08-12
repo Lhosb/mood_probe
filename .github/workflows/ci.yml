@@ -85,6 +85,7 @@ jobs:
 
       - name: Run golden regression gate (our regression)
         run: |
+          set +e
           output="$(
             docker run --rm --platform linux/amd64 \
               --entrypoint bash \
@@ -102,7 +103,12 @@ jobs:
                 bundle exec rspec spec/integration/essentia_golden_spec.rb --format progress
               '
           )"
+          status=$?
+          set -e
           printf '%s\n' "$output"
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
           grep -F "2 examples, 0 failures" <<<"$output"
 
   lint:
