@@ -68,6 +68,7 @@ jobs:
           mkdir -p tmp/models
           docker run --rm --platform linux/amd64 \
             --entrypoint bash \
+            --user "$(id -u):$(id -g)" \
             -v "$PWD/tmp/models:/models" \
             mood-probe-essentia \
             -c 'bundle exec ruby script/fetch_models_transport.rb /models'
