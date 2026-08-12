@@ -6,7 +6,13 @@
 #     -c 'bundle exec ruby -Ilib exe/mood-probe --models-dir "$MOOD_PROBE_MODELS_DIR" models fetch &&
 #         bundle exec rspec spec/integration/essentia_golden_spec.rb --format documentation'
 # Goldens record the gem's native descriptor values.
+# Native-run evidence on identical trees: EPYC 9V74 measured 4.369e-06 (22.9x inside the bound);
+# EPYC 7763 measured 3.894e-06 (25.7x inside). M1 outcome (b), ANSWERED-NOT-RUN: differing runner
+# populations refute unscoped bit identity, while n=1 per CPU model says nothing about model-scoped eq.
 require_relative "../support/canonical_essentia_environment"
+
+golden_fixture_names =
+  Pathname(__dir__).join("../fixtures/mood_probe/golden").expand_path.glob("*.json").map(&:basename).sort
 
 RSpec.describe "MoodProbe Essentia goldens", :essentia do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
@@ -39,36 +45,28 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
     )
   end
 
-  it "keeps every native value within the calibrated cross-environment bound" do
+  golden_fixture_names.each do |filename|
+    it "keeps #{filename} within the calibrated cross-environment bound" do
+      CanonicalEssentiaEnvironment.verify! unless actual_root
+
+      name = filename.basename(".json").to_s
+      expected = JSON.parse(fixture_root.join("golden", filename).read, symbolize_names: true)
+      actual = actual_values(name)
+
+      compare_with_tolerance(actual, expected, "#{filename} golden")
+    end
+  end
+
+  it "reports the full-fixture deviation from the frozen public baseline" do
     CanonicalEssentiaEnvironment.verify! unless actual_root
 
-    audio_dir = fixture_root.join("audio")
-    golden_dir = fixture_root.join("golden")
     baseline_dir = fixture_root.join("baseline_v0_1_0")
-    names = %w[chirp clicks sine_440 white_noise]
-
-    actual_by_name =
-      if actual_root
-        names.to_h do |name|
-          [name, JSON.parse(actual_root.join("#{name}.json").read, symbolize_names: true)]
-        end
-      else
-        results = extractor.analyze_all(
-          names.map { |name| audio_dir.join("#{name}.wav") },
-          descriptors:
-        )
-        expect(results).to all(be_ok)
-        results.zip(names).to_h do |result, name|
-          [name, result.analysis.to_h.transform_values(&:value)]
-        end
-      end
 
     baseline_comparisons = []
-    actual_by_name.each do |name, actual|
-      expected = JSON.parse(golden_dir.join("#{name}.json").read, symbolize_names: true)
-      compare_with_tolerance(actual, expected, "#{name}.json golden")
-
-      baseline = JSON.parse(baseline_dir.join("#{name}.json").read, symbolize_names: true)
+    golden_fixture_names.each do |filename|
+      name = filename.basename(".json").to_s
+      baseline = JSON.parse(baseline_dir.join(filename).read, symbolize_names: true)
+      actual = actual_values(name)
       baseline_comparisons.concat(comparisons(public_values(actual), baseline, name))
     end
 
@@ -96,6 +94,39 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
     end
   end
 
+  it "rejects every golden cell just outside its calibrated bound with attribution" do
+    golden_dir = fixture_root.join("golden")
+
+    golden_dir.glob("*.json").sort.each do |path|
+      expected = JSON.parse(path.read, symbolize_names: true)
+      expected.each do |head, value|
+        tolerance = [golden_rel_tol * value.abs, golden_abs_floor].max
+        actual = expected.merge(head => value + (1.1 * tolerance))
+
+        expect do
+          compare_with_tolerance(actual, expected, "#{path.basename} golden")
+        end.to raise_error(
+          RSpec::Expectations::ExpectationNotMetError,
+          /#{Regexp.escape(path.basename.to_s)} golden #{head}/
+        )
+      end
+    end
+  end
+
+  it "accepts every golden cell just inside its calibrated bound" do
+    golden_dir = fixture_root.join("golden")
+
+    golden_dir.glob("*.json").sort.each do |path|
+      expected = JSON.parse(path.read, symbolize_names: true)
+      expected.each do |head, value|
+        tolerance = [golden_rel_tol * value.abs, golden_abs_floor].max
+        actual = expected.merge(head => value + (0.9 * tolerance))
+
+        compare_with_tolerance(actual, expected, "#{path.basename} golden")
+      end
+    end
+  end
+
   def public_values(actual)
     {
       valence: (actual.fetch(:valence_emomusic) - 1.0) / 8.0,
@@ -105,6 +136,18 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
       mood_relaxed: actual.fetch(:mood_relaxed),
       mood_happy: actual.fetch(:mood_happy)
     }
+  end
+
+  def actual_values(name)
+    if actual_root
+      JSON.parse(actual_root.join("#{name}.json").read, symbolize_names: true)
+    else
+      result = extractor.analyze(
+        fixture_root.join("audio", "#{name}.wav"),
+        descriptors:
+      )
+      result.to_h.transform_values(&:value)
+    end
   end
 
   def compare_with_tolerance(actual, expected, fixture)

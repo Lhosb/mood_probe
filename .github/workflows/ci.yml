@@ -21,7 +21,30 @@ jobs:
         run: bundle exec rspec --exclude-pattern spec/baseline_v0_1_0_parity_spec.rb
 
       - name: Run frozen baseline algebraic gate
-        run: bundle exec rspec spec/baseline_v0_1_0_parity_spec.rb
+        run: |
+          mkdir -p tmp
+          floor=$(find spec/fixtures/mood_probe/baseline_v0_1_0 -maxdepth 1 -type f -name "*.json" | wc -l | tr -d "[:space:]")
+          test "$floor" -gt 0
+          set +e
+          bundle exec rspec spec/baseline_v0_1_0_parity_spec.rb \
+            --format progress --format json --out tmp/baseline-parity.json
+          status=$?
+          set -e
+          test "$status" -eq 0
+          summary=$(ruby -rjson -e '
+            summary = JSON.parse(File.read(ARGV.fetch(0))).fetch("summary")
+            puts %w[example_count failure_count pending_count errors_outside_of_examples_count]
+              .map { |key| summary.fetch(key) }.join(" ")
+          ' tmp/baseline-parity.json)
+          set -- $summary
+          example_count=$1
+          failure_count=$2
+          pending_count=$3
+          error_count=$4
+          test "$example_count" -ge "$floor"
+          test "$failure_count" -eq 0
+          test "$pending_count" -eq 0
+          test "$error_count" -eq 0
 
   essentia_offline:
     runs-on: ubuntu-latest
@@ -112,7 +135,24 @@ jobs:
               -v "$PWD/tmp/actual:/actual:ro" \
               mood-probe-essentia \
               -c '
-                bundle exec rspec spec/integration/essentia_golden_spec.rb --format progress
+                floor=$(find spec/fixtures/mood_probe/golden -maxdepth 1 -type f -name "*.json" | wc -l | tr -d "[:space:]")
+                test "$floor" -gt 0
+                bundle exec rspec spec/integration/essentia_golden_spec.rb \
+                  --format progress --format json --out /tmp/essentia-golden.json
+                summary=$(ruby -rjson -e "
+                  summary = JSON.parse(File.read(ARGV.fetch(0))).fetch(\"summary\")
+                  puts %w[example_count failure_count pending_count errors_outside_of_examples_count]
+                    .map { |key| summary.fetch(key) }.join(\" \")
+                " /tmp/essentia-golden.json)
+                set -- $summary
+                example_count=$1
+                failure_count=$2
+                pending_count=$3
+                error_count=$4
+                test "$example_count" -ge "$floor"
+                test "$failure_count" -eq 0
+                test "$pending_count" -eq 0
+                test "$error_count" -eq 0
               '
           )"
           status=$?
@@ -121,7 +161,6 @@ jobs:
           if [ "$status" -ne 0 ]; then
             exit "$status"
           fi
-          grep -F "2 examples, 0 failures" <<<"$output"
 
   lint:
     runs-on: ubuntu-latest

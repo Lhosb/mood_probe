@@ -44,6 +44,21 @@ RSpec.describe "canonical Essentia golden environment" do
     end.not_to raise_error
   end
 
+  it "names the GitHub-runner-class CPU allowlist honestly" do
+    expect(
+      CanonicalEssentiaEnvironment.github_runner_class_x86_64?(
+        "x86_64",
+        "AMD EPYC 7763 64-Core Processor"
+      )
+    ).to be(true)
+    expect(
+      CanonicalEssentiaEnvironment.github_runner_class_x86_64?(
+        "x86_64",
+        "Intel(R) Core(TM) i7-12700K"
+      )
+    ).to be(false)
+  end
+
   it "prevents the golden generator from writing on arm64 before model loading" do
     generator = Pathname(__dir__).join("fixtures/mood_probe/generate_goldens.rb")
     ruby = <<~RUBY

@@ -16,7 +16,7 @@ module CanonicalEssentiaEnvironment
     cpu_identifier: CanonicalEssentiaEnvironment.cpu_identifier,
     allow_non_canonical: ENV[OVERRIDE_ENV] == "1"
   )
-    return if native_x86_64?(host_cpu, cpu_identifier) || allow_non_canonical
+    return if github_runner_class_x86_64?(host_cpu, cpu_identifier) || allow_non_canonical
 
     raise <<~MESSAGE.strip
       Essentia goldens require native x86_64; this host is #{host_cpu}, CPU is #{cpu_identifier}.
@@ -26,7 +26,7 @@ module CanonicalEssentiaEnvironment
     MESSAGE
   end
 
-  def self.native_x86_64?(host_cpu, cpu_identifier)
+  def self.github_runner_class_x86_64?(host_cpu, cpu_identifier)
     CANONICAL_CPUS.include?(host_cpu) && NATIVE_CPU_PATTERN.match?(cpu_identifier)
   end
 end

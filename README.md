@@ -8,9 +8,10 @@ The gem ships neither Essentia nor model weights. See `NOTICE`.
 
 ```ruby
 extractor = MoodProbe::Extractor.new(models_dir: "/path/to/models")
-extractor.verify!
-features = extractor.analyze("/path/to/audio.wav")
-results = extractor.analyze_all(["one.wav", Pathname("two.wav")])
+descriptors = %i[valence_emomusic arousal_emomusic danceability mood_acoustic mood_relaxed mood_happy]
+extractor.verify!(descriptors:)
+features = extractor.analyze("/path/to/audio.wav", descriptors:)
+results = extractor.analyze_all(["one.wav", Pathname("two.wav")], descriptors:)
 ```
 
 Model downloads are always explicit:
@@ -20,6 +21,10 @@ mood-probe --models-dir /path/to/models models fetch
 mood-probe --models-dir /path/to/models models verify
 mood-probe --models-dir /path/to/models analyze track.wav
 ```
+
+`models verify` verifies the registered model files and their digests. It no
+longer preflights Python or Essentia; use `Extractor#verify!(descriptors:)` or
+an extraction command to verify the runtime environment for a descriptor set.
 
 ## Security notes
 

@@ -1,3 +1,6 @@
+baseline_fixture_names =
+  Pathname(__dir__).join("fixtures/mood_probe/baseline_v0_1_0").glob("*.json").map(&:basename).sort
+
 RSpec.describe "mood_probe v0.1.0 algebraic parity" do
   let(:fixture_root) { Pathname(__dir__).join("fixtures/mood_probe") }
   let(:baseline_dir) { fixture_root.join("baseline_v0_1_0") }
@@ -13,10 +16,10 @@ RSpec.describe "mood_probe v0.1.0 algebraic parity" do
     }
   end
 
-  it "preserves the frozen public values through the native-value goldens" do
-    %w[chirp clicks sine_440 white_noise].each do |name|
-      baseline = JSON.parse(baseline_dir.join("#{name}.json").read)
-      golden = JSON.parse(golden_dir.join("#{name}.json").read)
+  baseline_fixture_names.each do |filename|
+    it "preserves #{filename} through the native-value golden" do
+      baseline = JSON.parse(baseline_dir.join(filename).read)
+      golden = JSON.parse(golden_dir.join(filename).read)
 
       head_mapping.each do |baseline_head, golden_head|
         expected = baseline.fetch(baseline_head)
@@ -25,7 +28,7 @@ RSpec.describe "mood_probe v0.1.0 algebraic parity" do
         tolerance = [1e-4 * expected.abs, 1e-10].max
 
         expect(actual).to be_within(tolerance).of(expected),
-                          "#{name}.json #{baseline_head} drifted"
+                          "#{filename} #{baseline_head} drifted"
       end
     end
   end

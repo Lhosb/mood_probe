@@ -16,8 +16,16 @@ RSpec.describe "release CI" do
     step = jobs.fetch("rspec").fetch("steps").find do |candidate|
       candidate["name"] == "Run frozen baseline algebraic gate"
     end
+    command = step.fetch("run")
 
-    expect(step.fetch("run")).to include("spec/baseline_v0_1_0_parity_spec.rb")
+    expect(command).to include(
+      "find spec/fixtures/mood_probe/baseline_v0_1_0",
+      "spec/baseline_v0_1_0_parity_spec.rb",
+      "example_count",
+      "pending_count"
+    )
+    expect(command).to match(/test.*example_count.*-ge.*floor/m)
+    expect(command).to match(/test.*pending_count.*-eq.*0/m)
   end
 
   it "separates transport, checksum drift, environment capability, and golden regression" do
@@ -42,9 +50,15 @@ RSpec.describe "release CI" do
       "spec/integration/essentia_golden_spec.rb",
       "status=$?",
       "exit \"$status\"",
-      "2 examples, 0 failures"
+      "find spec/fixtures/mood_probe/golden",
+      "example_count",
+      "pending_count"
     )
+    expect(commands).to match(/test.*example_count.*-ge.*floor/m)
+    expect(commands).to match(/test.*pending_count.*-eq.*0/m)
+    expect(commands).not_to include("2 examples, 0 failures")
     expect(commands.scan('--user "$(id -u):$(id -g)"').length).to eq(4)
+    # This assertion keeps environment verification in capture, so comparison stays pure arithmetic.
     expect(capture_source).to include("CanonicalEssentiaEnvironment.verify!")
   end
 end
