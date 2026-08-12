@@ -32,6 +32,7 @@ RSpec.describe "release CI" do
     )
     expect(commands).to include(
       "--platform linux/amd64",
+      '--user "$(id -u):$(id -g)"',
       "goldens are amd64-canonical",
       "ESSENTIA_SPECS=1",
       "spec/integration/essentia_golden_spec.rb",
