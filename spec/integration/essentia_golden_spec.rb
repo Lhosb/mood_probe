@@ -13,6 +13,7 @@ require_relative "../support/canonical_essentia_environment"
 
 golden_fixture_names =
   Pathname(__dir__).join("../fixtures/mood_probe/golden").expand_path.glob("*.json").map(&:basename).sort
+raise "no golden fixtures discovered" if golden_fixture_names.empty?
 
 RSpec.describe "MoodProbe Essentia goldens", :essentia do
   let(:root) { Pathname(__dir__).join("../..").expand_path }

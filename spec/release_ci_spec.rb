@@ -6,6 +6,8 @@ RSpec.describe "release CI" do
   let(:workflow) { YAML.safe_load(workflow_source, aliases: true) }
   let(:jobs) { workflow.fetch("jobs") }
   let(:capture_source) { Pathname(__dir__).join("../script/capture_essentia_outputs.rb").read }
+  let(:golden_spec_source) { Pathname(__dir__).join("integration/essentia_golden_spec.rb").read }
+  let(:parity_spec_source) { Pathname(__dir__).join("baseline_v0_1_0_parity_spec.rb").read }
 
   it "runs all four release jobs on branch pushes" do
     expect(workflow_source).to match(/^  push:\s*$/)
@@ -26,6 +28,15 @@ RSpec.describe "release CI" do
     )
     expect(command).to match(/test.*example_count.*-ge.*floor/m)
     expect(command).to match(/test.*pending_count.*-eq.*0/m)
+  end
+
+  it "fails closed when fixture discovery is empty inside either spec" do
+    expect(golden_spec_source).to include(
+      'raise "no golden fixtures discovered" if golden_fixture_names.empty?'
+    )
+    expect(parity_spec_source).to include(
+      'raise "no baseline fixtures discovered" if baseline_fixture_names.empty?'
+    )
   end
 
   it "separates transport, checksum drift, environment capability, and golden regression" do
