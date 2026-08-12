@@ -57,6 +57,10 @@ RSpec.describe "release CI" do
     expect(commands).to match(/test.*example_count.*-ge.*floor/m)
     expect(commands).to match(/test.*pending_count.*-eq.*0/m)
     expect(commands).not_to include("2 examples, 0 failures")
+    regression_command = steps.find do |step|
+      step["name"] == "Run golden regression gate (our regression)"
+    end.fetch("run")
+    expect(regression_command).to match(/-c '\s*set -e\s+floor=/m)
     expect(commands.scan('--user "$(id -u):$(id -g)"').length).to eq(4)
     # This assertion keeps environment verification in capture, so comparison stays pure arithmetic.
     expect(capture_source).to include("CanonicalEssentiaEnvironment.verify!")

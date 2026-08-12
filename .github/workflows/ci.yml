@@ -135,6 +135,7 @@ jobs:
               -v "$PWD/tmp/actual:/actual:ro" \
               mood-probe-essentia \
               -c '
+                set -e
                 floor=$(find spec/fixtures/mood_probe/golden -maxdepth 1 -type f -name "*.json" | wc -l | tr -d "[:space:]")
                 test "$floor" -gt 0
                 bundle exec rspec spec/integration/essentia_golden_spec.rb \
