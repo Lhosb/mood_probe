@@ -26,6 +26,7 @@ RSpec.describe "release CI" do
     commands = steps.filter_map { |step| step["run"] }.join("\n")
 
     expect(names).to include(
+      "Set up amd64 emulation",
       "Fetch models (upstream transport)",
       "Verify model digests (upstream checksum drift)",
       "Run golden regression gate (our regression)"
