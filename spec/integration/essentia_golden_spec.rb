@@ -81,7 +81,10 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
   it "returns a TrackError for the Phase 1 undecodable fixture" do
     if actual_root
       error = JSON.parse(actual_root.join("undecodable.json").read)
-      expect(error).to eq("type" => "unreadable_audio")
+      expect(error).to eq(
+        "ok" => false,
+        "error_class" => "MoodProbe::UnreadableAudioError"
+      )
     else
       result = extractor.analyze_all(
         [fixture_root.join("audio/undecodable.m4a")],

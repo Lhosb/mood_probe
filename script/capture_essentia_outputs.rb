@@ -36,8 +36,10 @@ undecodable = extractor.analyze_all(
   [audio_dir.join("undecodable.m4a")],
   descriptors:
 ).first
-unless !undecodable.ok? && undecodable.error.is_a?(MoodProbe::UnreadableAudioError)
-  raise "undecodable fixture did not produce UnreadableAudioError"
-end
-
-actual_dir.join("undecodable.json").write("#{JSON.generate(type: 'unreadable_audio')}\n")
+undecodable_payload =
+  if undecodable.ok?
+    { ok: true }
+  else
+    { ok: false, error_class: undecodable.error.class.name }
+  end
+actual_dir.join("undecodable.json").write("#{JSON.generate(undecodable_payload)}\n")
