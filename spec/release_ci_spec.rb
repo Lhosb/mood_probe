@@ -5,6 +5,7 @@ RSpec.describe "release CI" do
   let(:workflow_source) { workflow_path.read }
   let(:workflow) { YAML.safe_load(workflow_source, aliases: true) }
   let(:jobs) { workflow.fetch("jobs") }
+  let(:capture_source) { Pathname(__dir__).join("../script/capture_essentia_outputs.rb").read }
 
   it "runs all four release jobs on branch pushes" do
     expect(workflow_source).to match(/^  push:\s*$/)
@@ -19,28 +20,31 @@ RSpec.describe "release CI" do
     expect(step.fetch("run")).to include("spec/baseline_v0_1_0_parity_spec.rb")
   end
 
-  it "separates transport, checksum drift, and golden regression on amd64" do
+  it "separates transport, checksum drift, environment capability, and golden regression" do
     job = jobs.fetch("essentia_golden")
     steps = job.fetch("steps")
     names = steps.map { |step| step["name"] }
     commands = steps.filter_map { |step| step["run"] }.join("\n")
 
     expect(names).to include(
-      "Set up amd64 emulation",
       "Fetch models (upstream transport)",
       "Verify model digests (upstream checksum drift)",
+      "Capture native outputs (environment incapable)",
       "Run golden regression gate (our regression)"
     )
-    expect(job.fetch("runs-on")).to eq("ubuntu-24.04-arm")
+    expect(names).not_to include("Set up amd64 emulation")
+    expect(job.fetch("runs-on")).to eq("ubuntu-latest")
     expect(commands).to include(
       "--platform linux/amd64",
-      "goldens are amd64-canonical",
       "ESSENTIA_SPECS=1",
+      "script/capture_essentia_outputs.rb",
+      "MOOD_PROBE_ACTUAL_ROOT=/actual",
       "spec/integration/essentia_golden_spec.rb",
       "status=$?",
       "exit \"$status\"",
       "2 examples, 0 failures"
     )
-    expect(commands.scan('--user "$(id -u):$(id -g)"').length).to eq(3)
+    expect(commands.scan('--user "$(id -u):$(id -g)"').length).to eq(4)
+    expect(capture_source).to include("CanonicalEssentiaEnvironment.verify!")
   end
 end

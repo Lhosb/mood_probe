@@ -52,18 +52,13 @@ jobs:
           if-no-files-found: error
 
   essentia_golden:
-    # The committed amd64 goldens were measured under ARM-host QEMU. Native
-    # x86_64 selects different TensorFlow kernels and produces low-order drift.
-    runs-on: ubuntu-24.04-arm
+    # Native x86_64 matches the app CI and deployment target. AMD64 names an
+    # ISA, not a complete execution environment, so emulated amd64 is rejected.
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-
-      - name: Set up amd64 emulation
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: amd64
 
       - name: Build amd64 Essentia image
         run: docker build --platform linux/amd64 -f Dockerfile.essentia -t mood-probe-essentia .
@@ -90,6 +85,21 @@ jobs:
             mood-probe-essentia \
             -c 'bundle exec ruby -Ilib exe/mood-probe --models-dir /models models verify'
 
+      # This step must finish before the comparison starts. Import failures,
+      # preflight timeouts, OOM, and container death are environment failures,
+      # not evidence that the numeric assertion ran and failed.
+      - name: Capture native outputs (environment incapable)
+        run: |
+          mkdir -p tmp/actual
+          docker run --rm --platform linux/amd64 \
+            --entrypoint bash \
+            --user "$(id -u):$(id -g)" \
+            -e MOOD_PROBE_MODELS_DIR=/models \
+            -v "$PWD/tmp/models:/models:ro" \
+            -v "$PWD/tmp/actual:/actual" \
+            mood-probe-essentia \
+            -c 'bundle exec ruby script/capture_essentia_outputs.rb /actual'
+
       - name: Run golden regression gate (our regression)
         run: |
           set +e
@@ -98,15 +108,10 @@ jobs:
               --entrypoint bash \
               --user "$(id -u):$(id -g)" \
               -e ESSENTIA_SPECS=1 \
-              -e MOOD_PROBE_MODELS_DIR=/models \
-              -v "$PWD/tmp/models:/models:ro" \
+              -e MOOD_PROBE_ACTUAL_ROOT=/actual \
+              -v "$PWD/tmp/actual:/actual:ro" \
               mood-probe-essentia \
               -c '
-                architecture="$(uname -m)"
-                if [ "$architecture" != "x86_64" ]; then
-                  echo "Essentia goldens are amd64-canonical; this host is $architecture." >&2
-                  exit 1
-                fi
                 bundle exec rspec spec/integration/essentia_golden_spec.rb --format progress
               '
           )"

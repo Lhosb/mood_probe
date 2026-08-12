@@ -2,30 +2,55 @@ require "open3"
 require_relative "support/canonical_essentia_environment"
 
 RSpec.describe "canonical Essentia golden environment" do
-  it "rejects a non-amd64 host with the canonical environment named" do
+  it "rejects a non-x86 host with the canonical environment named" do
     expect do
-      CanonicalEssentiaEnvironment.verify!(host_cpu: "arm64", allow_non_canonical: false)
+      CanonicalEssentiaEnvironment.verify!(
+        host_cpu: "arm64",
+        cpu_identifier: "Apple M4",
+        allow_non_canonical: false
+      )
     end.to raise_error(RuntimeError) { |error|
       expect(error.message).to include(
-        "goldens are amd64-canonical",
+        "goldens require native x86_64",
         "host is arm64",
+        "CPU is Apple M4",
         "Dockerfile.essentia"
       )
     }
   end
 
-  it "accepts amd64 and an explicit non-canonical override" do
+  it "rejects emulated amd64 even though the ISA reports x86_64" do
     expect do
-      CanonicalEssentiaEnvironment.verify!(host_cpu: "x86_64", allow_non_canonical: false)
-      CanonicalEssentiaEnvironment.verify!(host_cpu: "arm64", allow_non_canonical: true)
+      CanonicalEssentiaEnvironment.verify!(
+        host_cpu: "x86_64",
+        cpu_identifier: "QEMU Virtual CPU version 2.5+",
+        allow_non_canonical: false
+      )
+    end.to raise_error(RuntimeError, /native x86_64.*QEMU Virtual CPU/m)
+  end
+
+  it "accepts a native Xeon or EPYC and an explicit override" do
+    expect do
+      CanonicalEssentiaEnvironment.verify!(
+        host_cpu: "x86_64",
+        cpu_identifier: "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+        allow_non_canonical: false
+      )
+      CanonicalEssentiaEnvironment.verify!(
+        host_cpu: "arm64",
+        cpu_identifier: "Apple M4",
+        allow_non_canonical: true
+      )
     end.not_to raise_error
   end
 
   it "prevents the golden generator from writing on arm64 before model loading" do
     generator = Pathname(__dir__).join("fixtures/mood_probe/generate_goldens.rb")
     ruby = <<~RUBY
+      require #{Pathname(__dir__).join('support/canonical_essentia_environment').to_s.inspect}
       require "rbconfig"
       RbConfig::CONFIG["host_cpu"] = "arm64"
+      def CanonicalEssentiaEnvironment.cpu_identifier(...) = "Apple M4"
       load ARGV.fetch(0)
     RUBY
     _stdout, stderr, status = Open3.capture3(
@@ -34,7 +59,7 @@ RSpec.describe "canonical Essentia golden environment" do
     )
 
     expect(status).not_to be_success
-    expect(stderr).to match(/goldens are amd64-canonical.*host is arm64/i)
+    expect(stderr).to match(/goldens require native x86_64.*host is arm64/i)
     expect(stderr).not_to include("missing model")
   end
 end

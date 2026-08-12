@@ -36,13 +36,16 @@ if a deployment must admit local writers.
 
 The gem owns deterministic synthetic audio and full-precision goldens under
 `spec/fixtures/mood_probe`. Essentia can run natively on arm64 macOS when the
-Python package and model files are installed. The bit-identical golden gate
-uses the amd64 container because native model output has small
-architecture-dependent floating-point differences and CI runs amd64. Use
-`bash -c`, not `bash -lc`; a login shell resets the image's virtualenv `PATH`.
-The golden spec and generator refuse non-amd64 hosts before comparing or
-writing. `MOOD_PROBE_ALLOW_NON_CANONICAL=1` is available only for deliberate
-investigation; it must not be used to produce committed goldens.
+Python package and model files are installed. The release gate captures output
+on native x86_64 and compares all six descriptor values at the calibrated
+bound `max(1e-4 * |expected|, 1e-10)`. Use `bash -c`, not `bash -lc`; a login
+shell resets the image's virtualenv `PATH`.
+
+The golden spec and generator require detector-confirmed native x86_64. They
+use both `RUBY_PLATFORM` and the CPU model from `/proc/cpuinfo`; an amd64 ISA
+reported inside QEMU or another emulation layer is not the canonical
+environment. `MOOD_PROBE_ALLOW_NON_CANONICAL=1` is available only for
+deliberate investigation; it must not be used to produce committed goldens.
 
 ```sh
 docker build --platform linux/amd64 \
