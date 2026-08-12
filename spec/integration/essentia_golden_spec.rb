@@ -49,7 +49,7 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
     results.zip(names).each do |result, name|
       expected = JSON.parse(golden_dir.join("#{name}.json").read, symbolize_names: true)
       actual = result.analysis.to_h.transform_values(&:value)
-      expect(actual).to eq(expected)
+      expect(actual).to eq(expected), "golden fixture #{name}.json drifted"
     end
   end
 

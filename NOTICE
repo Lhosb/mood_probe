@@ -4,10 +4,13 @@ This gem interoperates with Essentia, which is distributed separately under
 the GNU Affero General Public License v3.0. Essentia code is not included in
 this gem.
 
-The model files referenced by MoodProbe::ModelRegistry are distributed
+The model files referenced by MoodProbe::Registry are distributed
 separately by the Music Technology Group at Universitat Pompeu Fabra. Their
-metadata identifies Creative Commons BY-NC-SA 4.0 and BY-NC-ND 4.0 terms,
-depending on the model. Model files are not included in this gem.
+compliance floor is Creative Commons Attribution-NonCommercial-NoDerivatives
+4.0 International (CC BY-NC-ND 4.0). MTG's own pages conflict between
+ShareAlike and NoDerivatives terms; use is non-commercial under either reading,
+and this notice makes no claim of per-model variation. Model files are not
+included in this gem.
 
 Operators are responsible for reviewing and complying with the licenses for
 Essentia and each model before installing or using those separate components.

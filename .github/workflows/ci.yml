@@ -3,7 +3,6 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
 
 jobs:
   rspec:
@@ -18,8 +17,11 @@ jobs:
         with:
           bundler-cache: true
 
-      - name: Run test suite
-        run: bundle exec rspec
+      - name: Run test suite except frozen baseline algebraic gate
+        run: bundle exec rspec --exclude-pattern spec/baseline_v0_1_0_parity_spec.rb
+
+      - name: Run frozen baseline algebraic gate
+        run: bundle exec rspec spec/baseline_v0_1_0_parity_spec.rb
 
   essentia_offline:
     runs-on: ubuntu-latest
@@ -48,6 +50,57 @@ jobs:
           name: resampling-measurement
           path: tmp/resampling_measurement.json
           if-no-files-found: error
+
+  essentia_golden:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build amd64 Essentia image
+        run: docker build --platform linux/amd64 -f Dockerfile.essentia -t mood-probe-essentia .
+
+      # Transport is isolated so 404, timeout, rate-limit, and DNS failures are
+      # visibly upstream availability failures rather than gem regressions.
+      - name: Fetch models (upstream transport)
+        run: |
+          mkdir -p tmp/models
+          docker run --rm --platform linux/amd64 \
+            --entrypoint bash \
+            -v "$PWD/tmp/models:/models" \
+            mood-probe-essentia \
+            -c 'bundle exec ruby script/fetch_models_transport.rb /models'
+
+      # No retry spans this step: a mismatch means upstream bytes changed.
+      - name: Verify model digests (upstream checksum drift)
+        run: |
+          docker run --rm --platform linux/amd64 \
+            --entrypoint bash \
+            -v "$PWD/tmp/models:/models:ro" \
+            mood-probe-essentia \
+            -c 'bundle exec ruby -Ilib exe/mood-probe --models-dir /models models verify'
+
+      - name: Run golden regression gate (our regression)
+        run: |
+          output="$(
+            docker run --rm --platform linux/amd64 \
+              --entrypoint bash \
+              -e ESSENTIA_SPECS=1 \
+              -e MOOD_PROBE_MODELS_DIR=/models \
+              -v "$PWD/tmp/models:/models:ro" \
+              mood-probe-essentia \
+              -c '
+                architecture="$(uname -m)"
+                if [ "$architecture" != "x86_64" ]; then
+                  echo "Essentia goldens are amd64-canonical; this host is $architecture." >&2
+                  exit 1
+                fi
+                bundle exec rspec spec/integration/essentia_golden_spec.rb --format progress
+              '
+          )"
+          printf '%s\n' "$output"
+          grep -F "2 examples, 0 failures" <<<"$output"
 
   lint:
     runs-on: ubuntu-latest

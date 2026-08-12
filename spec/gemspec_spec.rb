@@ -6,4 +6,8 @@ RSpec.describe "mood_probe.gemspec" do
     expect(gemspec.email).not_to include("opensource@example.invalid")
     expect(gemspec.homepage).to eq("https://github.com/Lhosb/mood_probe")
   end
+
+  it "declares the Phase A release version" do
+    expect(gemspec.version.to_s).to eq("0.2.0")
+  end
 end

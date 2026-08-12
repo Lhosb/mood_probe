@@ -5,6 +5,20 @@ require "optparse"
 require "pathname"
 require "mood_probe"
 
+def print_model_license_notice(registry)
+  registry.models.each do |model|
+    puts [
+      "MODEL LICENSE #{model.id}:",
+      model.license,
+      "|",
+      model.attribution,
+      "|",
+      model.source_url,
+      "| non-commercial use only"
+    ].join(" ")
+  end
+end
+
 options = {
   models_dir: ENV.fetch("MOOD_PROBE_MODELS_DIR", File.expand_path("~/.cache/mood_probe/models")),
   timeout_per_file: 60,
@@ -30,10 +44,15 @@ begin
     subcommand = ARGV.shift
     case subcommand
     when "verify"
-      extractor.verify!
+      registry = MoodProbe::Registry.default
+      MoodProbe::ModelStore.new(options.fetch(:models_dir), registry:).verify!(
+        filenames: registry.models.map(&:filename)
+      )
       puts "Models verified"
     when "fetch"
-      MoodProbe::ModelStore.new(options.fetch(:models_dir)).fetch!
+      registry = MoodProbe::Registry.default
+      print_model_license_notice(registry)
+      MoodProbe::ModelStore.new(options.fetch(:models_dir), registry:).fetch!
       puts "Models fetched and verified"
     else
       abort("models requires verify or fetch")
