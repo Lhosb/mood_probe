@@ -47,6 +47,23 @@ RSpec.describe MoodProbe::ModelStore do
     end
   end
 
+  {
+    "suffix host" => "https://essentia.upf.edu.evil.test/model.pb",
+    "userinfo host" => "https://essentia.upf.edu@evil.test/model.pb"
+  }.each do |description, source_url|
+    it "rejects downloading a model with a confusing #{description}" do
+      foreign_model = model.with(source_url:)
+      foreign_registry = MoodProbe::Registry.new(models: [foreign_model], descriptors: [])
+      downloader = instance_double(MoodProbe::ModelStore::Downloader)
+
+      Dir.mktmpdir do |dir|
+        expect(downloader).not_to receive(:download)
+        expect { described_class.new(dir, registry: foreign_registry, downloader:).fetch! }
+          .to raise_error(MoodProbe::BackendError, /host .*evil\.test.*not allowed/)
+      end
+    end
+  end
+
   it "raises ConfigurationError for missing or mismatched requested models" do
     Dir.mktmpdir do |dir|
       store = described_class.new(dir, registry:)
