@@ -8,5 +8,6 @@ require_relative "mood_probe/model_store"
 require_relative "mood_probe/backends/essentia_python"
 require_relative "mood_probe/extractor"
 
+# Public API for registry-driven Essentia audio descriptor extraction.
 module MoodProbe
 end

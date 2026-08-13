@@ -1,4 +1,8 @@
 module MoodProbe
+  # Metadata describing how a value was produced.
+  #
+  # `essentia_version` is currently always `nil`; the backend does not yet
+  # report a build-unique Essentia version.
   Provenance = Data.define(
     :source,
     :model_filename,
@@ -62,6 +66,7 @@ module MoodProbe
     end
   end
 
+  # A scalar descriptor value. {#value} is always a finite `Float`.
   class Scalar < Value
     attr_reader :value
 
@@ -75,6 +80,7 @@ module MoodProbe
     end
   end
 
+  # A categorical descriptor with a label and optional strength/distribution.
   class Categorical < Value
     attr_reader :label, :strength, :distribution
 
@@ -102,6 +108,7 @@ module MoodProbe
     end
   end
 
+  # A fixed-length descriptor vector whose elements are finite `Float` values.
   class Vector < Value
     attr_reader :values
 
@@ -156,6 +163,9 @@ module MoodProbe
     end
   end
 
+  # An immutable, enumerable collection of descriptor values keyed by id.
+  #
+  # {#[]} raises `KeyError` when the requested id is absent.
   class Analysis
     include Enumerable
 

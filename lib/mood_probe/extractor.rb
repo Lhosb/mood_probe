@@ -26,6 +26,11 @@ module MoodProbe
     end
     # rubocop:enable Metrics/ParameterLists
 
+    # Verifies the runtime and model files required by a descriptor set.
+    #
+    # @param descriptors [Array<Symbol, String>] descriptor ids to verify
+    # @return [true]
+    # @raise [ConfigurationError, BackendError] when the runtime or required models are unavailable
     def verify!(descriptors:)
       wanted = descriptors.to_set(&:to_sym)
       verify_environment!
@@ -38,10 +43,22 @@ module MoodProbe
       true
     end
 
+    # Builds the immutable extraction plan for a descriptor set.
+    #
+    # @param descriptors [Array<Symbol, String>] descriptor ids to plan
+    # @return [Plan]
+    # @raise [ConfigurationError] when a descriptor or graph algorithm is unknown
     def plan_for(descriptors:)
       planner.plan_for(descriptors:)
     end
 
+    # Extracts descriptors from one audio file.
+    #
+    # @param path [String, Pathname] audio path
+    # @param descriptors [Array<Symbol, String>] descriptor ids to extract
+    # @return [Analysis]
+    # @raise [TrackError] when the file cannot be analyzed
+    # @raise [FatalError] when configuration, the backend, or its output schema is invalid
     def analyze(path, descriptors:)
       result = analyze_all([path], descriptors:).first
       raise result.error unless result.ok?
@@ -49,13 +66,19 @@ module MoodProbe
       result.analysis
     end
 
+    # Extracts descriptors from multiple audio files while preserving input order.
+    #
+    # @param paths [Array<String, Pathname>] audio paths
+    # @param descriptors [Array<Symbol, String>] descriptor ids to extract
+    # @return [Array<Result>] successful analyses and returned per-track errors
+    # @raise [FatalError] when configuration, the backend, or its output schema is invalid
     def analyze_all(paths, descriptors:)
       normalized_paths = paths.map { |path| Pathname(path) }
       verify!(descriptors:)
       plan = plan_for(descriptors:)
       requested = descriptors.map(&:to_sym)
 
-      if backend.is_a?(Backends::EssentiaPython)
+      if backend.respond_to?(:analyze_all)
         outcomes = backend.analyze_all(normalized_paths, plan:)
         normalized_paths.zip(outcomes).map do |path, outcome|
           result_for_outcome(path, requested, outcome)

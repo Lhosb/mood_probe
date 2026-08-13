@@ -1,30 +1,55 @@
 # mood_probe
 
-`mood_probe` extracts six normalized mood features from audio using an
-operator-provided Essentia Python installation and six separately licensed
-TensorFlow model files.
+`mood_probe` extracts a registry of Essentia descriptors from audio using an
+operator-provided Essentia Python installation. Values are emitted in each
+descriptor's native range, declared on its registry row; normalization is the
+consumer's responsibility. Demand-driven planning verifies only the model
+files required by the requested descriptors, and `[:bpm]` requires no model
+files.
 
 The gem ships neither Essentia nor model weights. See `NOTICE`.
 
 ```ruby
 extractor = MoodProbe::Extractor.new(models_dir: "/path/to/models")
-descriptors = %i[valence_emomusic arousal_emomusic danceability mood_acoustic mood_relaxed mood_happy]
+descriptors = %i[bpm musicnn_embedding]
 extractor.verify!(descriptors:)
 features = extractor.analyze("/path/to/audio.wav", descriptors:)
 results = extractor.analyze_all(["one.wav", Pathname("two.wav")], descriptors:)
 ```
+
+Consumers can provide a compatible registry with
+`MoodProbe::Extractor.new(models_dir: "/path/to/models", registry: my_registry)`.
 
 Model downloads are always explicit:
 
 ```sh
 mood-probe --models-dir /path/to/models models fetch
 mood-probe --models-dir /path/to/models models verify
-mood-probe --models-dir /path/to/models analyze track.wav
+mood-probe descriptors
+mood-probe --models-dir /path/to/models --descriptors bpm,musicnn_embedding analyze track.wav
 ```
 
 `models verify` verifies the registered model files and their digests. It no
 longer preflights Python or Essentia; use `Extractor#verify!(descriptors:)` or
 an extraction command to verify the runtime environment for a descriptor set.
+
+## Implementing a backend
+
+A backend provides `preflight_environment!`, `preflight_plan!(plan)`, and
+`analyze(path, plan:)`. It may also provide `analyze_all(paths, plan:)` for
+batch execution. Analysis methods return raw descriptor hashes on success. A
+batch result preserves input order and returns a `MoodProbe::TrackError`
+instance in the corresponding result position for a per-track failure; it
+does not raise that error. Fatal configuration or backend failures are raised.
+
+## Adding an algorithm
+
+The executable algorithm surface is intentionally static. Adding an algorithm
+requires a gem patch at four sites: `Planner::GRAPH_ALGORITHMS` in
+`lib/mood_probe/plan.rb`, plus the `_GRAPH_ALGORITHMS` enum, the parameter
+types/domains/defaults tables, and `build_pipeline` in
+`python/mood_probe_extract.py`. A registry row alone cannot add executable
+code.
 
 ## Security notes
 
