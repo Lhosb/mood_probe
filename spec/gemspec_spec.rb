@@ -8,6 +8,6 @@ RSpec.describe "mood_probe.gemspec" do
   end
 
   it "declares the Phase A release version" do
-    expect(gemspec.version.to_s).to eq("0.2.0")
+    expect(gemspec.version.to_s).to eq("0.2.1")
   end
 end
