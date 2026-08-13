@@ -7,7 +7,7 @@ RSpec.describe "sonance.gemspec" do
     expect(gemspec.homepage).to eq("https://github.com/Lhosb/sonance")
   end
 
-  it "declares the Phase A release version" do
-    expect(gemspec.version.to_s).to eq("0.2.1")
+  it "declares the breaking Sonance release version" do
+    expect(gemspec.version.to_s).to eq("0.3.0")
   end
 end
