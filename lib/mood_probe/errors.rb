@@ -2,18 +2,19 @@ module MoodProbe
   # Base class for every public mood_probe failure.
   class Error < StandardError; end
 
-  # Base class returned in batch results, or raised by `Extractor#analyze`,
-  # for a failure limited to one input track.
+  # Backend implementations return this from `analyze` or `analyze_all` for a
+  # failure limited to one track; they do not raise it. `Extractor#analyze`
+  # re-raises the returned error for its single-file caller.
   class TrackError < Error; end
-  # Returned in a batch, or raised by `Extractor#analyze`, when audio cannot be opened or decoded.
+  # Returned by a backend when audio cannot be opened or decoded.
   class UnreadableAudioError < TrackError; end
-  # Returned in a batch, or raised by `Extractor#analyze`, when one track times out.
+  # Returned by a backend when extracting one track times out.
   class TimeoutError < TrackError; end
-  # Returned in a batch, or raised by `Extractor#analyze`, for a malformed descriptor value.
+  # Returned by a backend for a malformed descriptor value.
   class MalformedOutputError < TrackError; end
-  # Returned in a batch, or raised by `Extractor#analyze`, when inference fails for one track.
+  # Returned by a backend when inference fails for one track.
   class InferenceError < TrackError; end
-  # Returned in a batch, or raised by `Extractor#analyze`, when the process fails for one track.
+  # Returned by a backend when its process fails for one track.
   class BackendProcessError < TrackError; end
 
   # Base class raised for failures that invalidate the extraction run.

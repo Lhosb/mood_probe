@@ -37,18 +37,30 @@ an extraction command to verify the runtime environment for a descriptor set.
 
 A backend provides `preflight_environment!`, `preflight_plan!(plan)`, and
 `analyze(path, plan:)`. It may also provide `analyze_all(paths, plan:)` for
-batch execution. Analysis methods return raw descriptor hashes on success. A
-batch result preserves input order and returns a `MoodProbe::TrackError`
-instance in the corresponding result position for a per-track failure; it
-does not raise that error. Fatal configuration or backend failures are raised.
+batch execution. `analyze` returns either a raw descriptor hash or a
+`MoodProbe::TrackError`; `analyze_all` returns the same outcomes in input
+order. Backends return per-track errors from both methods rather than raising
+them. `Extractor#analyze_all` converts returned errors to failed `Result`
+objects, while `Extractor#analyze` re-raises the returned error for its
+single-file caller. Fatal configuration or backend failures are raised.
 
 ## Adding an algorithm
 
-The executable algorithm surface is intentionally static. Adding an algorithm
-requires a gem patch at four sites: `Planner::GRAPH_ALGORITHMS` in
-`lib/mood_probe/plan.rb`, plus the `_GRAPH_ALGORITHMS` enum, the parameter
-types/domains/defaults tables, and `build_pipeline` in
-`python/mood_probe_extract.py`. A registry row alone cannot add executable
+The executable algorithm surface is intentionally static, with separate
+extension paths:
+
+- A model-backed graph algorithm requires a mapping in
+  `Planner::GRAPH_ALGORITHMS`, an entry in Python's `_GRAPH_ALGORITHMS`, and a
+  construction branch in `build_pipeline`. Graph algorithms take no `params`;
+  plan validation rejects them unconditionally.
+- A standalone algorithm name on a registry `FromAlgorithm` row is forwarded
+  by the planner without a Ruby enum. Add its parameter type allowlist to
+  `_ALGORITHM_PARAMS`, its allowed domains to `_ALGORITHM_PARAM_DOMAINS`, and
+  its construction branch to `build_pipeline`. If it has a cross-parameter
+  minimum-span rule, declare that in `_ALGORITHM_MINIMUM_SPANS` and provide
+  omitted-value defaults in `_ALGORITHM_PARAM_DEFAULTS`.
+
+Both paths require a gem patch; a registry row alone cannot add executable
 code.
 
 ## Security notes
