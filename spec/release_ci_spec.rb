@@ -39,6 +39,18 @@ RSpec.describe "release CI" do
     )
   end
 
+  it "keeps every capture-script descriptor registered" do
+    descriptor_block = capture_source.match(/descriptors = %i\[(.*?)\]/m)
+    expect(descriptor_block).not_to be_nil
+
+    descriptor_ids = descriptor_block[1].scan(/[a-z][a-z0-9_]*/).map(&:to_sym)
+    expect(descriptor_ids).not_to be_empty
+
+    expect do
+      descriptor_ids.each { |id| Sonance::Registry.default.fetch(id) }
+    end.not_to raise_error
+  end
+
   it "separates transport, checksum drift, environment capability, and golden regression" do
     job = jobs.fetch("essentia_golden")
     steps = job.fetch("steps")

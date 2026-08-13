@@ -12,10 +12,10 @@ models_dir = ENV.fetch("SONANCE_MODELS_DIR")
 descriptors = %i[
   valence_emomusic
   arousal_emomusic
-  danceability
-  mood_acoustic
-  mood_relaxed
-  mood_happy
+  danceability_musicnn
+  mood_acoustic_musicnn
+  mood_relaxed_musicnn
+  mood_happy_musicnn
 ]
 names = %w[chirp clicks sine_440 white_noise]
 extractor = Sonance::Extractor.new(models_dir:)
