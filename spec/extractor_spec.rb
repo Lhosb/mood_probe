@@ -29,6 +29,34 @@ RSpec.describe MoodProbe::Extractor do
     expect(results[2].analysis[:mood_happy].value).to eq(0.9)
   end
 
+  it "uses analyze_all on any backend that provides it" do
+    batch_backend = Class.new do
+      attr_reader :analyzed_paths
+
+      def preflight_environment!; end
+      def preflight_plan!(*); end
+
+      def analyze_all(paths, **)
+        @analyzed_paths = paths
+        paths.map { { mood_happy: 0.5 } }
+      end
+
+      def analyze(*)
+        raise "per-file analyze should not be called"
+      end
+    end.new
+    batch_extractor = described_class.new(
+      models_dir: "/models",
+      backend: batch_backend,
+      model_store:
+    )
+
+    results = batch_extractor.analyze_all(%w[one.wav two.wav], descriptors: [:mood_happy])
+
+    expect(batch_backend.analyzed_paths).to eq(%w[one.wav two.wav].map { |path| Pathname(path) })
+    expect(results.map { |result| result.analysis[:mood_happy].value }).to eq([0.5, 0.5])
+  end
+
   it "raises configuration errors before any file is processed" do
     allow(model_store).to receive(:verify!)
       .and_raise(MoodProbe::ConfigurationError, "bad models")

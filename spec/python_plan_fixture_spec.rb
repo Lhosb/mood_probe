@@ -1,5 +1,9 @@
 require "open3"
 
+plan_fixture_names =
+  Pathname(__dir__).join("fixtures/mood_probe/plans").glob("*.json").map(&:basename).sort
+raise "no plan fixtures discovered" if plan_fixture_names.empty?
+
 RSpec.describe "committed plans at the Python boundary" do
   let(:root) { Pathname(__dir__).join("..").expand_path }
   let(:script) { root.join("python/mood_probe_extract.py") }
@@ -7,7 +11,8 @@ RSpec.describe "committed plans at the Python boundary" do
 
   it "parses every byte-identical committed plan fixture without importing Essentia" do
     Dir.mktmpdir do |dir|
-      fixture_dir.glob("*.json").sort.each do |fixture|
+      plan_fixture_names.each do |filename|
+        fixture = fixture_dir.join(filename)
         prepare_models(fixture, dir)
         stdout, stderr, status = validate_fixture(fixture, dir)
 
