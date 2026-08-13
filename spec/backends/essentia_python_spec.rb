@@ -1,4 +1,4 @@
-RSpec.describe MoodProbe::Backends::EssentiaPython do
+RSpec.describe Sonance::Backends::EssentiaPython do
   let(:runner) { instance_double(described_class::CommandRunner) }
   let(:backend) do
     described_class.new(
@@ -9,12 +9,12 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     )
   end
   let(:model_plan) do
-    MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(descriptors: [:mood_happy_musicnn])
+    Sonance::Planner.new(registry: Sonance::Registry.default)
+                    .plan_for(descriptors: [:mood_happy_musicnn])
   end
   let(:algorithm_plan) do
-    MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(descriptors: [:bpm_rhythm2013])
+    Sonance::Planner.new(registry: Sonance::Registry.default)
+                    .plan_for(descriptors: [:bpm_rhythm2013])
   end
 
   it "preflights the Python and Essentia environment independently" do
@@ -119,7 +119,7 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
 
     error = backend.analyze("bad.wav", plan: model_plan)
 
-    expect(error).to be_a(MoodProbe::UnreadableAudioError)
+    expect(error).to be_a(Sonance::UnreadableAudioError)
     expect(error.message).to eq("decode failed")
   end
 
@@ -137,7 +137,7 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
 
     error = backend.analyze("bad.wav", plan: model_plan)
 
-    expect(error).to be_a(MoodProbe::MalformedOutputError)
+    expect(error).to be_a(Sonance::MalformedOutputError)
     expect(error.message).to eq("non-finite feature values")
   end
 
@@ -154,13 +154,13 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     )
 
     expect { backend.analyze("bad.wav", plan: model_plan) }
-      .to raise_error(MoodProbe::BackendError, /unknown error type: new_backend_error/)
+      .to raise_error(Sonance::BackendError, /unknown error type: new_backend_error/)
   end
 
   it "maps command timeouts to a TrackError" do
     allow(runner).to receive(:call).and_raise(described_class::CommandTimeout)
 
-    expect(backend.analyze("slow.wav", plan: model_plan)).to be_a(MoodProbe::TimeoutError)
+    expect(backend.analyze("slow.wav", plan: model_plan)).to be_a(Sonance::TimeoutError)
   end
 
   it "maps an unavailable Python executable to a fatal configuration error" do
@@ -170,7 +170,7 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     )
 
     expect { unavailable_backend.preflight_environment! }
-      .to raise_error(MoodProbe::ConfigurationError, /python/i)
+      .to raise_error(Sonance::ConfigurationError, /python/i)
   end
 
   it "maps configuration and crash exits to fatal errors" do
@@ -178,16 +178,16 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
       described_class::CommandRunner::Result.new(stdout: "", stderr: "bad config", exitstatus: 2)
     )
     expect { backend.preflight_plan!(model_plan) }
-      .to raise_error(MoodProbe::ConfigurationError, /bad config/)
+      .to raise_error(Sonance::ConfigurationError, /bad config/)
 
     allow(runner).to receive(:call).and_return(
       described_class::CommandRunner::Result.new(stdout: "", stderr: "crash", exitstatus: 1)
     )
     expect { backend.analyze("track.wav", plan: model_plan) }
-      .to raise_error(MoodProbe::BackendError, /crash/)
+      .to raise_error(Sonance::BackendError, /crash/)
   end
 
-  it "keeps a nil exit status inside the MoodProbe error taxonomy" do
+  it "keeps a nil exit status inside the Sonance error taxonomy" do
     allow(runner).to receive(:call).and_return(
       described_class::CommandRunner::Result.new(
         stdout: "",
@@ -198,16 +198,16 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     )
 
     expect { backend.analyze("track.wav", plan: model_plan) }
-      .to raise_error(MoodProbe::BackendError, /terminated/)
+      .to raise_error(Sonance::BackendError, /terminated/)
   end
 
   it "maps environment and plan preflight timeouts to BackendError" do
     allow(runner).to receive(:call).and_raise(described_class::CommandTimeout)
 
     expect { backend.preflight_environment! }
-      .to raise_error(MoodProbe::BackendError, /environment preflight timed out/)
+      .to raise_error(Sonance::BackendError, /environment preflight timed out/)
     expect { backend.preflight_plan!(model_plan) }
-      .to raise_error(MoodProbe::BackendError, /plan preflight timed out/)
+      .to raise_error(Sonance::BackendError, /plan preflight timed out/)
   end
 
   {
@@ -225,7 +225,7 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
       )
 
       expect { backend.analyze("track.wav", plan: model_plan) }
-        .to raise_error(MoodProbe::BackendError)
+        .to raise_error(Sonance::BackendError)
     end
   end
 
@@ -240,7 +240,7 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
     )
 
     expect { backend.analyze("track.wav", plan: model_plan) }
-      .to raise_error(MoodProbe::BackendError, /returned 2 results for 1 paths/)
+      .to raise_error(Sonance::BackendError, /returned 2 results for 1 paths/)
   end
 
   def success

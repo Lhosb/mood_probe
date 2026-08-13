@@ -4,7 +4,7 @@ import os
 
 
 def trace(event):
-    path = os.environ.get("MOOD_PROBE_FAKE_TRACE")
+    path = os.environ.get("SONANCE_FAKE_TRACE")
     if path:
         with open(path, "a") as output:
             output.write(f"{event}\n")

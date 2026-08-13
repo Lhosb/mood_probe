@@ -1,6 +1,6 @@
 require "pathname"
 
-module MoodProbe
+module Sonance
   class Extractor
     # The final parameter is an internal seam for keeping model verification pure in unit tests.
     # rubocop:disable Metrics/ParameterLists

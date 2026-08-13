@@ -2,8 +2,8 @@ require "open3"
 
 RSpec.describe "Python plan security boundary" do
   let(:root) { Pathname(__dir__).join("..").expand_path }
-  let(:script) { root.join("python/mood_probe_extract.py") }
-  let(:fixture_dir) { root.join("spec/fixtures/mood_probe/plans") }
+  let(:script) { root.join("python/sonance_extract.py") }
+  let(:fixture_dir) { root.join("spec/fixtures/sonance/plans") }
   let(:tripwire_path) { root.join("spec/support/import_tripwire").to_s }
 
   it "reports every registered algorithm capability before importing Essentia" do
@@ -14,13 +14,13 @@ RSpec.describe "Python plan security boundary" do
         "python3", script.to_s, "--capabilities"
       )
       capabilities = JSON.parse(stdout).fetch("algorithms")
-      registered = MoodProbe::Registry.default.models.map do |model|
-        MoodProbe::Planner::GRAPH_ALGORITHMS.fetch(model.algorithm)
+      registered = Sonance::Registry.default.models.map do |model|
+        Sonance::Planner::GRAPH_ALGORITHMS.fetch(model.algorithm)
       end
       registered.concat(
-        MoodProbe::Registry.default.descriptors.filter_map do |descriptor|
+        Sonance::Registry.default.descriptors.filter_map do |descriptor|
           source = descriptor.produced_by
-          source.name if source.is_a?(MoodProbe::FromAlgorithm)
+          source.name if source.is_a?(Sonance::FromAlgorithm)
         end
       )
 
@@ -402,7 +402,7 @@ RSpec.describe "Python plan security boundary" do
   def tripwire_environment(sentinel)
     {
       "PYTHONPATH" => tripwire_path,
-      "MOOD_PROBE_IMPORT_SENTINEL" => sentinel.to_s
+      "SONANCE_IMPORT_SENTINEL" => sentinel.to_s
     }
   end
 
@@ -427,14 +427,14 @@ RSpec.describe "Python plan security boundary" do
       import sys
       from pathlib import Path
 
-      spec = importlib.util.spec_from_file_location("mood_probe_extract", sys.argv[1])
+      spec = importlib.util.spec_from_file_location("sonance_extract", sys.argv[1])
       module = importlib.util.module_from_spec(spec)
       spec.loader.exec_module(module)
       #{setup}
       try:
           module.validate_plan(json.loads(sys.argv[2]), Path(sys.argv[3]))
       except module.PlanValidationError as exc:
-          print(f"mood_probe plan invalid: {exc}", file=sys.stderr)
+          print(f"sonance plan invalid: {exc}", file=sys.stderr)
           raise SystemExit(2)
       print("valid")
     PYTHON

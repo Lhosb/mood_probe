@@ -1,5 +1,5 @@
 RSpec.describe "committed golden fixtures" do
-  let(:fixture_root) { Pathname(__dir__).join("fixtures/mood_probe") }
+  let(:fixture_root) { Pathname(__dir__).join("fixtures/sonance") }
   let(:descriptor_ids) do
     %w[
       valence_emomusic

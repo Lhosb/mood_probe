@@ -1,11 +1,11 @@
-RSpec.describe "python/mood_probe_extract.py" do
+RSpec.describe "python/sonance_extract.py" do
   let(:root) { Pathname(__dir__).join("..").expand_path }
-  let(:script) { root.join("python/mood_probe_extract.py") }
+  let(:script) { root.join("python/sonance_extract.py") }
   let(:python_path) { root.join("spec/support/fake_essentia").to_s }
   let(:models_dir) { Pathname(Dir.mktmpdir) }
   let(:plan) do
-    MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(descriptors: [:mood_happy_musicnn])
+    Sonance::Planner.new(registry: Sonance::Registry.default)
+                    .plan_for(descriptors: [:mood_happy_musicnn])
   end
 
   around do |example|
@@ -69,9 +69,9 @@ RSpec.describe "python/mood_probe_extract.py" do
       import importlib.util
       import sys
 
-      spec = importlib.util.spec_from_file_location("mood_probe_extract", sys.argv[1])
-      mood_probe_extract = importlib.util.module_from_spec(spec)
-      spec.loader.exec_module(mood_probe_extract)
+      spec = importlib.util.spec_from_file_location("sonance_extract", sys.argv[1])
+      sonance_extract = importlib.util.module_from_spec(spec)
+      spec.loader.exec_module(sonance_extract)
 
       class ExplodingPaths:
           def __bool__(self):
@@ -88,10 +88,10 @@ RSpec.describe "python/mood_probe_extract.py" do
           plan_json = "{}"
           plan_file = None
 
-      mood_probe_extract.argparse.ArgumentParser.parse_args = lambda self: Args()
-      mood_probe_extract.load_plan = lambda plan_json, plan_file, models_dir: {}
-      mood_probe_extract.build_pipeline = lambda plan, models_dir: object()
-      sys.exit(mood_probe_extract.main())
+      sonance_extract.argparse.ArgumentParser.parse_args = lambda self: Args()
+      sonance_extract.load_plan = lambda plan_json, plan_file, models_dir: {}
+      sonance_extract.build_pipeline = lambda plan, models_dir: object()
+      sys.exit(sonance_extract.main())
     PYTHON
 
     stdout, stderr, status = Open3.capture3("python3", "-c", harness, script.to_s)

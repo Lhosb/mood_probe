@@ -1,9 +1,9 @@
 require "open3"
 
-RSpec.describe "MoodProbe offline Essentia execution", :essentia do
+RSpec.describe "Sonance offline Essentia execution", :essentia do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
-  let(:audio_dir) { root.join("spec/fixtures/mood_probe/audio") }
-  let(:python) { ENV.fetch("MOOD_PROBE_PYTHON", "python3") }
+  let(:audio_dir) { root.join("spec/fixtures/sonance/audio") }
+  let(:python) { ENV.fetch("SONANCE_PYTHON", "python3") }
   let(:ground_truth_bpm) { 120.0 }
   let(:bpm_tolerance) { 2.0 }
   let(:max_resampling_delta) { 1.0 }
@@ -38,7 +38,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
 
   it "analyzes BPM against an empty models directory without creating model files" do
     Dir.mktmpdir do |models_dir|
-      extractor = MoodProbe::Extractor.new(models_dir:, python_executable: python)
+      extractor = Sonance::Extractor.new(models_dir:, python_executable: python)
 
       analysis = extractor.analyze(
         audio_dir.join("clicks.wav"),
@@ -52,7 +52,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
 
   it "rejects a mixed model request against the same empty models directory" do
     Dir.mktmpdir do |models_dir|
-      extractor = MoodProbe::Extractor.new(models_dir:, python_executable: python)
+      extractor = Sonance::Extractor.new(models_dir:, python_executable: python)
 
       expect do
         extractor.analyze(
@@ -60,20 +60,20 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
           descriptors: %i[bpm_rhythm2013 mood_happy_musicnn]
         )
       end.to raise_error(
-        MoodProbe::ConfigurationError,
+        Sonance::ConfigurationError,
         /missing model.*msd-musicnn-1\.pb/
       )
     end
   end
 
   it "constructs every registered algorithm and keeps its whitelist within real parameters" do
-    registry = MoodProbe::Registry.default
+    registry = Sonance::Registry.default
     algorithm_ids = registry.descriptors.filter_map do |descriptor|
-      descriptor.id if descriptor.produced_by.is_a?(MoodProbe::FromAlgorithm)
+      descriptor.id if descriptor.produced_by.is_a?(Sonance::FromAlgorithm)
     end
 
     Dir.mktmpdir do |models_dir|
-      extractor = MoodProbe::Extractor.new(models_dir:, python_executable: python)
+      extractor = Sonance::Extractor.new(models_dir:, python_executable: python)
       expect(extractor.verify!(descriptors: algorithm_ids)).to be(true)
     end
 
@@ -84,7 +84,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
       import sys
       import essentia.standard as es
 
-      spec = importlib.util.spec_from_file_location("mood_probe_extract", sys.argv[1])
+      spec = importlib.util.spec_from_file_location("sonance_extract", sys.argv[1])
       module = importlib.util.module_from_spec(spec)
       spec.loader.exec_module(module)
       algorithm = es.RhythmExtractor2013()
@@ -145,7 +145,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
       }))
     PYTHON
     stdout, stderr, status = Open3.capture3(
-      python, "-c", harness, root.join("python/mood_probe_extract.py").to_s
+      python, "-c", harness, root.join("python/sonance_extract.py").to_s
     )
     parameters = JSON.parse(stdout)
 
@@ -187,8 +187,8 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
     expect(resampling_verdict(120.0, 122.0)).to eq("finding")
     expect(resampling_verdict(120.0, 60.0)).to eq("finding")
     expect(finding_details).to include(
-      finding_owner: "mood_probe maintainers",
-      follow_up: a_string_including("Block Phase A", "Lhosb/mood_probe issue")
+      finding_owner: "sonance maintainers",
+      follow_up: a_string_including("Block Phase A", "Lhosb/sonance issue")
     )
   end
 
@@ -225,7 +225,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
 
   def analyze_bpm(path)
     Dir.mktmpdir do |models_dir|
-      extractor = MoodProbe::Extractor.new(models_dir:, python_executable: python)
+      extractor = Sonance::Extractor.new(models_dir:, python_executable: python)
       return extractor.analyze(
         path,
         descriptors: [:bpm_rhythm2013]
@@ -252,7 +252,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
   def measurement_path
     Pathname(
       ENV.fetch(
-        "MOOD_PROBE_RESAMPLING_MEASUREMENT",
+        "SONANCE_RESAMPLING_MEASUREMENT",
         root.join("tmp/resampling_measurement.json").to_s
       )
     )
@@ -260,8 +260,8 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
 
   def finding_details
     {
-      finding_owner: "mood_probe maintainers",
-      follow_up: "Block Phase A and open a Lhosb/mood_probe issue for the measured resampling regression"
+      finding_owner: "sonance maintainers",
+      follow_up: "Block Phase A and open a Lhosb/sonance issue for the measured resampling regression"
     }
   end
 end

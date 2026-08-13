@@ -1,7 +1,7 @@
 require "digest"
-require "mood_probe"
+require "sonance"
 
-module MoodProbe
+module Sonance
   module RecordingModelFetch
     PAYLOADS = {
       "notice-a.pb" => "notice-a-payload",
@@ -37,5 +37,5 @@ module MoodProbe
   end
 end
 
-MoodProbe::Registry.singleton_class.prepend(MoodProbe::RecordingModelFetch::RegistryOverride)
-MoodProbe::ModelStore::Downloader.prepend(MoodProbe::RecordingModelFetch::DownloaderOverride)
+Sonance::Registry.singleton_class.prepend(Sonance::RecordingModelFetch::RegistryOverride)
+Sonance::ModelStore::Downloader.prepend(Sonance::RecordingModelFetch::DownloaderOverride)

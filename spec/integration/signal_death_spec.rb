@@ -4,7 +4,7 @@ module SignalDeathSpec
   class Runner
     def initialize
       @analyze_calls = 0
-      @real_runner = MoodProbe::Backends::EssentiaPython::CommandRunner.new
+      @real_runner = Sonance::Backends::EssentiaPython::CommandRunner.new
     end
 
     def call(command, timeout:)
@@ -30,7 +30,7 @@ module SignalDeathSpec
     end
 
     def success_result(stdout = "")
-      MoodProbe::Backends::EssentiaPython::CommandRunner::Result.new(
+      Sonance::Backends::EssentiaPython::CommandRunner::Result.new(
         stdout:,
         stderr: "",
         exitstatus: 0
@@ -41,17 +41,17 @@ end
 
 RSpec.describe "signal-killed backend isolation" do
   it "keeps siblings aligned when one real child dies by signal" do
-    backend = MoodProbe::Backends::EssentiaPython.new(
+    backend = Sonance::Backends::EssentiaPython.new(
       models_dir: "/models",
       command_runner: SignalDeathSpec::Runner.new
     )
-    plan = MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                             .plan_for(descriptors: [:mood_happy_musicnn])
+    plan = Sonance::Planner.new(registry: Sonance::Registry.default)
+                           .plan_for(descriptors: [:mood_happy_musicnn])
     paths = %w[one.wav two.wav signal.wav four.wav]
 
     results = paths.map { |path| backend.analyze(path, plan:) }
 
-    expect(results[2]).to be_a(MoodProbe::BackendProcessError)
+    expect(results[2]).to be_a(Sonance::BackendProcessError)
     expect(results[2].message).to include("signal 9")
     expect(results.values_at(0, 1, 3).map { |result| result.fetch("mood_happy_musicnn") })
       .to eq([0.1, 0.2, 0.4])

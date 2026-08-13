@@ -4,7 +4,7 @@ require "digest"
 require "json"
 require "pathname"
 require "tmpdir"
-require "mood_probe"
+require "sonance"
 
 RSpec.configure do |config|
   config.filter_run_excluding essentia: true unless ENV["ESSENTIA_SPECS"] == "1"

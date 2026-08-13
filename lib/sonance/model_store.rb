@@ -5,7 +5,7 @@ require "pathname"
 require "securerandom"
 require "uri"
 
-module MoodProbe
+module Sonance
   class ModelStore
     DOWNLOAD_HOST = "essentia.upf.edu".freeze
 
@@ -20,7 +20,7 @@ module MoodProbe
     end
 
     # Pathname operations bind an inode at verify time, not backend reopen time; sound only while the
-    # models root is not attacker-writable: https://github.com/Lhosb/mood_probe/issues/2
+    # models root is not attacker-writable: https://github.com/Lhosb/sonance/issues/2
     # rubocop:disable Metrics/ClassLength
     class Files
       Temporary = Data.define(:path, :file, :device, :inode)

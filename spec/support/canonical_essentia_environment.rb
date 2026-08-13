@@ -3,7 +3,7 @@ require "rbconfig"
 module CanonicalEssentiaEnvironment
   CANONICAL_CPUS = %w[amd64 x86_64].freeze
   NATIVE_CPU_PATTERN = /(?:Intel\(R\) Xeon\(R\)|AMD EPYC)/
-  OVERRIDE_ENV = "MOOD_PROBE_ALLOW_NON_CANONICAL".freeze
+  OVERRIDE_ENV = "SONANCE_ALLOW_NON_CANONICAL".freeze
 
   def self.cpu_identifier(cpuinfo: "/proc/cpuinfo")
     return "unknown CPU" unless File.exist?(cpuinfo)

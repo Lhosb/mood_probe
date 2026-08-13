@@ -21,7 +21,7 @@ RSpec.describe "release CI" do
     command = step.fetch("run")
 
     expect(command).to include(
-      "find spec/fixtures/mood_probe/baseline_v0_1_0",
+      "find spec/fixtures/sonance/baseline_v0_1_0",
       "spec/baseline_v0_1_0_parity_spec.rb",
       "example_count",
       "pending_count"
@@ -57,11 +57,11 @@ RSpec.describe "release CI" do
       "--platform linux/amd64",
       "ESSENTIA_SPECS=1",
       "script/capture_essentia_outputs.rb",
-      "MOOD_PROBE_ACTUAL_ROOT=/actual",
+      "SONANCE_ACTUAL_ROOT=/actual",
       "spec/integration/essentia_golden_spec.rb",
       "status=$?",
       "exit \"$status\"",
-      "find spec/fixtures/mood_probe/golden",
+      "find spec/fixtures/sonance/golden",
       "example_count",
       "pending_count"
     )

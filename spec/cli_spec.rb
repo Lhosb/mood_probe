@@ -1,9 +1,9 @@
 require "json"
 require "open3"
 
-RSpec.describe "mood-probe CLI" do
+RSpec.describe "sonance CLI" do
   let(:root) { Pathname(__dir__).join("..").expand_path }
-  let(:executable) { root.join("exe/mood-probe") }
+  let(:executable) { root.join("exe/sonance") }
 
   it "requires --descriptors for analyze" do
     _stdout, stderr, status = run_cli("analyze", "track.wav")
@@ -30,7 +30,7 @@ RSpec.describe "mood-probe CLI" do
     stdout, stderr, status = run_cli("descriptors")
 
     expect(status).to be_success, stderr
-    expect(stdout.lines(chomp: true)).to eq(MoodProbe::Registry.default.ids.map(&:to_s))
+    expect(stdout.lines(chomp: true)).to eq(Sonance::Registry.default.ids.map(&:to_s))
   end
 
   def run_cli(*arguments, ruby_options: nil)

@@ -1,4 +1,4 @@
-module MoodProbe
+module Sonance
   # Metadata describing how a value was produced.
   #
   # `essentia_version` is currently always `nil`; the backend does not yet

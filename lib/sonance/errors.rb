@@ -1,5 +1,5 @@
-module MoodProbe
-  # Base class for every public mood_probe failure.
+module Sonance
+  # Base class for every public sonance failure.
   class Error < StandardError; end
 
   # Backend implementations return this from `analyze` or `analyze_all` for a

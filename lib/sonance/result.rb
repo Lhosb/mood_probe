@@ -1,6 +1,6 @@
 require "pathname"
 
-module MoodProbe
+module Sonance
   class Result
     attr_reader :path, :analysis, :error
 

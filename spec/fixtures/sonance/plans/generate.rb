@@ -3,9 +3,9 @@
 $LOAD_PATH.unshift File.expand_path("../../../../lib", __dir__)
 
 require "json"
-require "mood_probe"
+require "sonance"
 
-planner = MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
+planner = Sonance::Planner.new(registry: Sonance::Registry.default)
 plans = {
   musicnn_only: %i[mood_happy_musicnn],
   algorithm_only: %i[bpm_rhythm2013],

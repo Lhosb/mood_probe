@@ -1,9 +1,9 @@
 # Run the real-Essentia gate from a native x86_64 host at the gem root:
-#   docker build --platform linux/amd64 -f Dockerfile.essentia -t mood-probe-essentia .
+#   docker build --platform linux/amd64 -f Dockerfile.essentia -t sonance-essentia .
 #   docker run --rm --platform linux/amd64 --entrypoint bash \
-#     -e ESSENTIA_SPECS=1 -e MOOD_PROBE_MODELS_DIR=/tmp/mood_probe_models \
-#     mood-probe-essentia \
-#     -c 'bundle exec ruby -Ilib exe/mood-probe --models-dir "$MOOD_PROBE_MODELS_DIR" models fetch &&
+#     -e ESSENTIA_SPECS=1 -e SONANCE_MODELS_DIR=/tmp/sonance_models \
+#     sonance-essentia \
+#     -c 'bundle exec ruby -Ilib exe/sonance --models-dir "$SONANCE_MODELS_DIR" models fetch &&
 #         bundle exec rspec spec/integration/essentia_golden_spec.rb --format documentation'
 # Goldens record the gem's native descriptor values.
 # Native-run evidence on identical trees: EPYC 9V74 measured 4.369e-06 (22.9x inside the bound);
@@ -12,10 +12,10 @@
 require_relative "../support/canonical_essentia_environment"
 
 golden_fixture_names =
-  Pathname(__dir__).join("../fixtures/mood_probe/golden").expand_path.glob("*.json").map(&:basename).sort
+  Pathname(__dir__).join("../fixtures/sonance/golden").expand_path.glob("*.json").map(&:basename).sort
 raise "no golden fixtures discovered" if golden_fixture_names.empty?
 
-RSpec.describe "MoodProbe Essentia goldens", :essentia do
+RSpec.describe "Sonance Essentia goldens", :essentia do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
   let(:descriptors) do
     %i[
@@ -28,21 +28,21 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
     ]
   end
   let(:fixture_root) do
-    Pathname(ENV.fetch("MOOD_PROBE_FIXTURE_ROOT", root.join("spec/fixtures/mood_probe").to_s))
+    Pathname(ENV.fetch("SONANCE_FIXTURE_ROOT", root.join("spec/fixtures/sonance").to_s))
   end
   let(:models_dir) do
-    ENV.fetch("MOOD_PROBE_MODELS_DIR", File.expand_path("~/.cache/mood_probe/models"))
+    ENV.fetch("SONANCE_MODELS_DIR", File.expand_path("~/.cache/sonance/models"))
   end
   let(:golden_rel_tol) { 1e-4 }
   let(:golden_abs_floor) { 1e-10 }
   let(:actual_root) do
-    value = ENV.fetch("MOOD_PROBE_ACTUAL_ROOT", nil)
+    value = ENV.fetch("SONANCE_ACTUAL_ROOT", nil)
     Pathname(value) if value
   end
   let(:extractor) do
-    MoodProbe::Extractor.new(
+    Sonance::Extractor.new(
       models_dir:,
-      python_executable: ENV.fetch("MOOD_PROBE_PYTHON", "python3")
+      python_executable: ENV.fetch("SONANCE_PYTHON", "python3")
     )
   end
 
@@ -82,7 +82,7 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
       error = JSON.parse(actual_root.join("undecodable.json").read)
       expect(error).to eq(
         "ok" => false,
-        "error_class" => "MoodProbe::UnreadableAudioError"
+        "error_class" => "Sonance::UnreadableAudioError"
       )
     else
       result = extractor.analyze_all(
@@ -91,7 +91,7 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
       ).first
 
       expect(result).not_to be_ok
-      expect(result.error).to be_a(MoodProbe::UnreadableAudioError)
+      expect(result.error).to be_a(Sonance::UnreadableAudioError)
     end
   end
 

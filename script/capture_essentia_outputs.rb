@@ -1,14 +1,14 @@
 require "json"
-require "mood_probe"
+require "sonance"
 require "pathname"
 require_relative "../spec/support/canonical_essentia_environment"
 
 CanonicalEssentiaEnvironment.verify!
 
 root = Pathname(__dir__).join("..").expand_path
-audio_dir = root.join("spec/fixtures/mood_probe/audio")
+audio_dir = root.join("spec/fixtures/sonance/audio")
 actual_dir = Pathname(ARGV.fetch(0)).expand_path
-models_dir = ENV.fetch("MOOD_PROBE_MODELS_DIR")
+models_dir = ENV.fetch("SONANCE_MODELS_DIR")
 descriptors = %i[
   valence_emomusic
   arousal_emomusic
@@ -18,7 +18,7 @@ descriptors = %i[
   mood_happy
 ]
 names = %w[chirp clicks sine_440 white_noise]
-extractor = MoodProbe::Extractor.new(models_dir:)
+extractor = Sonance::Extractor.new(models_dir:)
 
 actual_dir.mkpath
 results = extractor.analyze_all(

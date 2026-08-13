@@ -1,5 +1,5 @@
-RSpec.describe MoodProbe::Result do
-  let(:analysis) { MoodProbe::Analysis.new({}) }
+RSpec.describe Sonance::Result do
+  let(:analysis) { Sonance::Analysis.new({}) }
 
   it "represents a successful path" do
     result = described_class.new(path: Pathname("/tmp/good.wav"), analysis:)
@@ -11,7 +11,7 @@ RSpec.describe MoodProbe::Result do
   end
 
   it "represents a failed path" do
-    error = MoodProbe::UnreadableAudioError.new("bad audio")
+    error = Sonance::UnreadableAudioError.new("bad audio")
     result = described_class.new(path: "/tmp/bad.wav", error:)
 
     expect(result).not_to be_ok
@@ -20,7 +20,7 @@ RSpec.describe MoodProbe::Result do
   end
 
   it "rejects results with both or neither payload set" do
-    expect { described_class.new(path: "bad", analysis:, error: MoodProbe::TrackError.new) }
+    expect { described_class.new(path: "bad", analysis:, error: Sonance::TrackError.new) }
       .to raise_error(ArgumentError)
     expect { described_class.new(path: "bad") }.to raise_error(ArgumentError)
   end

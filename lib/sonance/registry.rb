@@ -1,12 +1,12 @@
 require "uri"
 
-module MoodProbe
+module Sonance
   Model = Data.define(
     :id,
     :filename,
     :sha256,
     :source_url,
-    # Streaming enforcement is tracked by https://github.com/Lhosb/mood_probe/issues/1.
+    # Streaming enforcement is tracked by https://github.com/Lhosb/sonance/issues/1.
     :byte_length,
     :license,
     :attribution,

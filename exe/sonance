@@ -3,7 +3,7 @@
 require "json"
 require "optparse"
 require "pathname"
-require "mood_probe"
+require "sonance"
 
 def print_model_license_notice(registry)
   registry.models.each do |model|
@@ -20,14 +20,14 @@ def print_model_license_notice(registry)
 end
 
 options = {
-  models_dir: ENV.fetch("MOOD_PROBE_MODELS_DIR", File.expand_path("~/.cache/mood_probe/models")),
+  models_dir: ENV.fetch("SONANCE_MODELS_DIR", File.expand_path("~/.cache/sonance/models")),
   timeout_per_file: 60,
   python_executable: "python3"
 }
 descriptors = nil
 
 OptionParser.new do |parser|
-  parser.banner = "Usage: mood-probe [options] analyze FILE | descriptors | models verify | models fetch"
+  parser.banner = "Usage: sonance [options] analyze FILE | descriptors | models verify | models fetch"
   parser.on("--models-dir DIR") { |value| options[:models_dir] = value }
   parser.on("--timeout SECONDS", Integer) { |value| options[:timeout_per_file] = value }
   parser.on("--python EXECUTABLE") { |value| options[:python_executable] = value }
@@ -42,23 +42,23 @@ begin
     path = ARGV.shift or abort("analyze requires FILE")
     abort("analyze requires --descriptors IDS") if descriptors.nil? || descriptors.empty?
 
-    extractor = MoodProbe::Extractor.new(**options)
+    extractor = Sonance::Extractor.new(**options)
     puts JSON.pretty_generate(extractor.analyze(path, descriptors:).to_h)
   when "descriptors"
-    puts MoodProbe::Registry.default.ids
+    puts Sonance::Registry.default.ids
   when "models"
     subcommand = ARGV.shift
     case subcommand
     when "verify"
-      registry = MoodProbe::Registry.default
-      MoodProbe::ModelStore.new(options.fetch(:models_dir), registry:).verify!(
+      registry = Sonance::Registry.default
+      Sonance::ModelStore.new(options.fetch(:models_dir), registry:).verify!(
         filenames: registry.models.map(&:filename)
       )
       puts "Models verified"
     when "fetch"
-      registry = MoodProbe::Registry.default
+      registry = Sonance::Registry.default
       print_model_license_notice(registry)
-      MoodProbe::ModelStore.new(options.fetch(:models_dir), registry:).fetch!
+      Sonance::ModelStore.new(options.fetch(:models_dir), registry:).fetch!
       puts "Models fetched and verified"
     else
       abort("models requires verify or fetch")
@@ -66,7 +66,7 @@ begin
   else
     abort("expected analyze, descriptors, or models")
   end
-rescue MoodProbe::Error => e
+rescue Sonance::Error => e
   warn e.message
   exit 1
 end

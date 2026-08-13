@@ -12,7 +12,7 @@ _SCHEMA_VERSION = 1
 # Development version string; does not uniquely identify a build. This
 # cross-check follows whatever library is installed, so updating the library
 # and this constant together will not fail the gate. See
-# https://github.com/Lhosb/mood_probe/issues/3 and Phase B DoD B8 for the
+# https://github.com/Lhosb/sonance/issues/3 and Phase B DoD B8 for the
 # build-unique closure.
 _ESSENTIA_VERSION = "2.1-beta6-dev"
 _MODEL_FILENAME = re.compile(r"^[A-Za-z0-9._-]+\.pb$")
@@ -381,7 +381,7 @@ def load_plan(plan_json, plan_file, models_dir: Path):
 
 
 # Canonicalise/check/open for hostile wire-data paths is defence in depth, not Ruby-to-Python inode
-# binding; check-then-open is TOCTOU. See https://github.com/Lhosb/mood_probe/issues/2.
+# binding; check-then-open is TOCTOU. See https://github.com/Lhosb/sonance/issues/2.
 def build_pipeline(plan: dict, models_dir: Path):
     import essentia.standard as es
 
@@ -531,13 +531,13 @@ def main() -> int:
             Path(args.models_dir),
         )
     except (OSError, json.JSONDecodeError, PlanValidationError) as exc:
-        print(f"mood_probe plan invalid: {exc}", file=sys.stderr)
+        print(f"sonance plan invalid: {exc}", file=sys.stderr)
         return 2
 
     try:
         loaded_models = build_pipeline(plan, Path(args.models_dir))
     except Exception as exc:
-        print(f"mood_probe configuration failed: {exc}", file=sys.stderr)
+        print(f"sonance configuration failed: {exc}", file=sys.stderr)
         return 2
 
     if args.verify:
@@ -600,7 +600,7 @@ def main() -> int:
                     }
                 )
     except Exception as exc:
-        print(f"mood_probe backend crashed: {exc}", file=sys.stderr)
+        print(f"sonance backend crashed: {exc}", file=sys.stderr)
         return 1
 
     return 0

@@ -1,4 +1,4 @@
-module MoodProbe
+module Sonance
   Plan = Data.define(
     :schema_version,
     :loads,

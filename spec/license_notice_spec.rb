@@ -2,7 +2,7 @@ require "open3"
 
 RSpec.describe "model fetch license notice" do
   let(:root) { Pathname(__dir__).join("..").expand_path }
-  let(:executable) { root.join("exe/mood-probe") }
+  let(:executable) { root.join("exe/sonance") }
   let(:recording_support) { root.join("spec/support/recording_model_fetch.rb") }
   let(:ruby_options) { "-r#{recording_support}" }
 
@@ -20,7 +20,7 @@ RSpec.describe "model fetch license notice" do
     expect(suppressed).not_to eq(source)
 
     Dir.mktmpdir do |dir|
-      suppressed_executable = Pathname(dir).join("mood-probe")
+      suppressed_executable = Pathname(dir).join("sonance")
       suppressed_executable.write(suppressed)
       stdout = run_fetch(suppressed_executable)
 
@@ -35,7 +35,7 @@ RSpec.describe "model fetch license notice" do
 
     expect(notice).not_to include("depending on the model")
     expect(notice).to include(
-      "MoodProbe::Registry",
+      "Sonance::Registry",
       "CC BY-NC-ND 4.0",
       "ShareAlike",
       "NoDerivatives"
@@ -91,7 +91,7 @@ RSpec.describe "model fetch license notice" do
       "-I#{root.join('lib')}",
       "-rjson",
       "-e",
-      "puts JSON.generate(MoodProbe::Registry.default.models.map(&:to_h))",
+      "puts JSON.generate(Sonance::Registry.default.models.map(&:to_h))",
       chdir: root
     )
 

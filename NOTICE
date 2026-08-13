@@ -1,10 +1,10 @@
-mood_probe is licensed under the MIT License.
+sonance is licensed under the MIT License.
 
 This gem interoperates with Essentia, which is distributed separately under
 the GNU Affero General Public License v3.0. Essentia code is not included in
 this gem.
 
-The model files referenced by MoodProbe::Registry are distributed
+The model files referenced by Sonance::Registry are distributed
 separately by the Music Technology Group at Universitat Pompeu Fabra. Their
 compliance floor is Creative Commons Attribution-NonCommercial-NoDerivatives
 4.0 International (CC BY-NC-ND 4.0). MTG's own pages conflict between

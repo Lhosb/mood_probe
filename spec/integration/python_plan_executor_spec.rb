@@ -2,17 +2,17 @@ require "open3"
 
 RSpec.describe "real Python plan executor seam" do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
-  let(:script) { root.join("python/mood_probe_extract.py") }
+  let(:script) { root.join("python/sonance_extract.py") }
   let(:python_path) { root.join("spec/support/fake_essentia").to_s }
-  let(:registry) { MoodProbe::Registry.default }
-  let(:planner) { MoodProbe::Planner.new(registry:) }
+  let(:registry) { Sonance::Registry.default }
+  let(:planner) { Sonance::Planner.new(registry:) }
 
   it "completes requested descriptor ids end to end through the real subprocess seam" do
     plan = planner.plan_for(descriptors: %i[valence_emomusic mood_happy_musicnn])
 
     Dir.mktmpdir do |models_dir|
       prepare_models(plan, models_dir)
-      backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
+      backend = Sonance::Backends::EssentiaPython.new(models_dir:)
 
       with_fake_essentia do
         expect(backend.analyze("good.wav", plan:)).to eq(
@@ -28,7 +28,7 @@ RSpec.describe "real Python plan executor seam" do
 
     Dir.mktmpdir do |models_dir|
       prepare_models(plan, models_dir)
-      backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
+      backend = Sonance::Backends::EssentiaPython.new(models_dir:)
 
       with_fake_essentia do
         embedding = backend.analyze("good.wav", plan:).fetch("embedding_musicnn")
@@ -47,8 +47,8 @@ RSpec.describe "real Python plan executor seam" do
       prepare_models(plan, models_dir)
       trace = Pathname(dir).join("trace")
       paths = %w[one.wav two.wav three.wav]
-      model_store = instance_double(MoodProbe::ModelStore, verify!: true)
-      extractor = MoodProbe::Extractor.new(
+      model_store = instance_double(Sonance::ModelStore, verify!: true)
+      extractor = Sonance::Extractor.new(
         models_dir:,
         model_store:
       )
@@ -84,12 +84,12 @@ RSpec.describe "real Python plan executor seam" do
 
       Dir.mktmpdir do |models_dir|
         prepare_models(plan, models_dir)
-        backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
+        backend = Sonance::Backends::EssentiaPython.new(models_dir:)
 
         with_fake_essentia do
           error = backend.analyze(path, plan:)
 
-          expect(error).to be_a(MoodProbe::MalformedOutputError)
+          expect(error).to be_a(Sonance::MalformedOutputError)
           expect(error.message).to include("embedding_musicnn[17]", value_name)
         end
       end
@@ -112,12 +112,12 @@ RSpec.describe "real Python plan executor seam" do
         ]
       )
       Dir.mktmpdir do |models_dir|
-        backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
+        backend = Sonance::Backends::EssentiaPython.new(models_dir:)
 
         with_fake_essentia do
           error = backend.analyze(path, plan:)
 
-          expect(error).to be_a(MoodProbe::MalformedOutputError)
+          expect(error).to be_a(Sonance::MalformedOutputError)
           expect(error.message).to include(
             "beat_category.distribution.unstable",
             value_name
@@ -138,12 +138,12 @@ RSpec.describe "real Python plan executor seam" do
       ]
     )
     Dir.mktmpdir do |models_dir|
-      backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
+      backend = Sonance::Backends::EssentiaPython.new(models_dir:)
 
       with_fake_essentia do
         error = backend.analyze("serialization-categorical.wav", plan:)
 
-        expect(error).to be_a(MoodProbe::MalformedOutputError)
+        expect(error).to be_a(Sonance::MalformedOutputError)
         expect(error.message).to include(
           "beat_category.distribution.<key>",
           "NaN"
@@ -163,7 +163,7 @@ RSpec.describe "real Python plan executor seam" do
       ]
     )
     Dir.mktmpdir do |models_dir|
-      backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
+      backend = Sonance::Backends::EssentiaPython.new(models_dir:)
 
       with_fake_essentia do
         outcomes = backend.analyze_all(
@@ -172,7 +172,7 @@ RSpec.describe "real Python plan executor seam" do
         )
 
         expect(outcomes.values_at(0, 2)).to all(eq("beat_category" => 0.9))
-        expect(outcomes[1]).to be_a(MoodProbe::MalformedOutputError)
+        expect(outcomes[1]).to be_a(Sonance::MalformedOutputError)
         expect(outcomes[1].message).to include(
           "descriptor serialization failed",
           "not JSON serializable"
@@ -186,7 +186,7 @@ RSpec.describe "real Python plan executor seam" do
 
     Dir.mktmpdir do |models_dir|
       prepare_models(plan, models_dir)
-      backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
+      backend = Sonance::Backends::EssentiaPython.new(models_dir:)
 
       with_fake_essentia do
         outcomes = backend.analyze_all(
@@ -197,7 +197,7 @@ RSpec.describe "real Python plan executor seam" do
         expect(outcomes.values_at(0, 2)).to all(
           include("embedding_musicnn" => Array.new(200, 0.25))
         )
-        expect(outcomes[1]).to be_a(MoodProbe::MalformedOutputError)
+        expect(outcomes[1]).to be_a(Sonance::MalformedOutputError)
         expect(outcomes[1].message).to include("embedding_musicnn[17]", "NaN")
       end
     end
@@ -212,12 +212,12 @@ RSpec.describe "real Python plan executor seam" do
 
   def with_fake_essentia(trace: nil)
     original = ENV.fetch("PYTHONPATH", nil)
-    original_trace = ENV.fetch("MOOD_PROBE_FAKE_TRACE", nil)
+    original_trace = ENV.fetch("SONANCE_FAKE_TRACE", nil)
     ENV["PYTHONPATH"] = python_path
-    ENV["MOOD_PROBE_FAKE_TRACE"] = trace.to_s if trace
+    ENV["SONANCE_FAKE_TRACE"] = trace.to_s if trace
     yield
   ensure
     ENV["PYTHONPATH"] = original
-    ENV["MOOD_PROBE_FAKE_TRACE"] = original_trace
+    ENV["SONANCE_FAKE_TRACE"] = original_trace
   end
 end

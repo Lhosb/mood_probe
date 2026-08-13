@@ -1,7 +1,7 @@
-RSpec.describe MoodProbe::Planner do
-  subject(:planner) { described_class.new(registry: MoodProbe::Registry.default) }
+RSpec.describe Sonance::Planner do
+  subject(:planner) { described_class.new(registry: Sonance::Registry.default) }
 
-  fixture_root = Pathname(__dir__).join("fixtures/mood_probe/plans")
+  fixture_root = Pathname(__dir__).join("fixtures/sonance/plans")
 
   {
     "musicnn_only" => %i[mood_happy_musicnn],
@@ -31,10 +31,10 @@ RSpec.describe MoodProbe::Planner do
 
   # rubocop:disable Naming/VariableNumber
   it "rejects class projection from the MusiCNN embedding output" do
-    descriptor = MoodProbe::Descriptor.new(
+    descriptor = Sonance::Descriptor.new(
       id: :invalid_musicnn_class,
       kind: :scalar,
-      produced_by: MoodProbe::FromModel.new(
+      produced_by: Sonance::FromModel.new(
         model: :msd_musicnn_1,
         select: { class: "happy" }
       ),
@@ -45,15 +45,15 @@ RSpec.describe MoodProbe::Planner do
       shape: nil,
       notes: "Invalid projection used to pin the output contract."
     )
-    registry = MoodProbe::Registry.new(
-      models: MoodProbe::Registry.default.models,
+    registry = Sonance::Registry.new(
+      models: Sonance::Registry.default.models,
       descriptors: [descriptor]
     )
 
     expect do
       described_class.new(registry:).plan_for(descriptors: [:invalid_musicnn_class])
     end.to raise_error(
-      MoodProbe::ConfigurationError,
+      Sonance::ConfigurationError,
       %r{no classes recorded for msd_musicnn_1.*output model/dense/BiasAdd}
     )
   end
@@ -81,18 +81,18 @@ RSpec.describe MoodProbe::Planner do
 
   # rubocop:disable Naming/VariableNumber
   it "raises a gem configuration error for an unknown graph algorithm" do
-    models = MoodProbe::Registry.default.models.map do |model|
+    models = Sonance::Registry.default.models.map do |model|
       model.id == :msd_musicnn_1 ? model.with(algorithm: :custom_graph) : model
     end
-    registry = MoodProbe::Registry.new(
+    registry = Sonance::Registry.new(
       models:,
-      descriptors: MoodProbe::Registry.default.descriptors
+      descriptors: Sonance::Registry.default.descriptors
     )
 
     expect do
       described_class.new(registry:).plan_for(descriptors: [:embedding_musicnn])
     end.to raise_error(
-      MoodProbe::ConfigurationError,
+      Sonance::ConfigurationError,
       /unknown graph algorithm: custom_graph.*valid algorithms:.*tensorflow_predict_musicnn/
     )
   end

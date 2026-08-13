@@ -1,7 +1,7 @@
-RSpec.describe "MoodProbe typed values" do
-  let(:registry) { MoodProbe::Registry.default }
+RSpec.describe "Sonance typed values" do
+  let(:registry) { Sonance::Registry.default }
   let(:provenance) do
-    MoodProbe::Provenance.new(
+    Sonance::Provenance.new(
       source: :model,
       model_filename: "mood_happy-msd-musicnn-1.pb",
       model_version: "2",
@@ -9,11 +9,11 @@ RSpec.describe "MoodProbe typed values" do
       algorithm: "TensorflowPredict2D",
       reduction: :mean_over_frames,
       essentia_version: "test",
-      gem_version: MoodProbe::VERSION
+      gem_version: Sonance::VERSION
     )
   end
 
-  describe MoodProbe::Scalar do
+  describe Sonance::Scalar do
     it "exposes descriptor metadata with a finite scalar value" do
       value = described_class.new(
         descriptor: registry.fetch(:mood_happy_musicnn),
@@ -38,7 +38,7 @@ RSpec.describe "MoodProbe typed values" do
           provenance:,
           value: "0.75"
         )
-      end.to raise_error(MoodProbe::SchemaError, /mood_happy_musicnn.*numeric/)
+      end.to raise_error(Sonance::SchemaError, /mood_happy_musicnn.*numeric/)
     end
 
     it "enforces the descriptor sanity range" do
@@ -48,7 +48,7 @@ RSpec.describe "MoodProbe typed values" do
           provenance:,
           value: 13.1
         )
-      end.to raise_error(MoodProbe::MalformedOutputError, /valence_emomusic.*-3.0.*13.0/)
+      end.to raise_error(Sonance::MalformedOutputError, /valence_emomusic.*-3.0.*13.0/)
     end
 
     it "accepts both inclusive edges of a nominal descriptor sanity range" do
@@ -77,7 +77,7 @@ RSpec.describe "MoodProbe typed values" do
           provenance:,
           value: 1.0001
         )
-      end.to raise_error(MoodProbe::MalformedOutputError, /danceability_musicnn.*0.0.*1.0/)
+      end.to raise_error(Sonance::MalformedOutputError, /danceability_musicnn.*0.0.*1.0/)
     end
 
     it "normalizes an integer scalar to Float" do
@@ -91,7 +91,7 @@ RSpec.describe "MoodProbe typed values" do
     end
   end
 
-  describe MoodProbe::Vector do
+  describe Sonance::Vector do
     it "accepts a 200-float MusiCNN embedding" do
       value = described_class.new(
         descriptor: registry.fetch(:embedding_musicnn),
@@ -111,20 +111,20 @@ RSpec.describe "MoodProbe typed values" do
           values: Array.new(199, 0.25)
         )
       end.to raise_error(
-        MoodProbe::MalformedOutputError,
+        Sonance::MalformedOutputError,
         /embedding_musicnn.*expected 200.*got 199/
       )
     end
   end
 
-  describe MoodProbe::Analysis do
+  describe Sonance::Analysis do
     it "preserves request order and raises for an unrequested descriptor" do
-      happy = MoodProbe::Scalar.new(
+      happy = Sonance::Scalar.new(
         descriptor: registry.fetch(:mood_happy_musicnn),
         provenance:,
         value: 0.75
       )
-      bpm = MoodProbe::Scalar.new(
+      bpm = Sonance::Scalar.new(
         descriptor: registry.fetch(:bpm_rhythm2013),
         provenance:,
         value: 120.0
@@ -137,7 +137,7 @@ RSpec.describe "MoodProbe typed values" do
       expect { analysis[:arousal_emomusic] }.to raise_error(KeyError)
     end
 
-    describe MoodProbe::AnalysisBuilder do
+    describe Sonance::AnalysisBuilder do
       it "normalizes string descriptor keys from Python output" do
         analysis = described_class.new(registry:).call(
           requested: [:mood_happy_musicnn],
@@ -151,7 +151,7 @@ RSpec.describe "MoodProbe typed values" do
   end
 
   it "defines categorical and series values without registry series rows" do
-    expect(MoodProbe::Categorical).to be < MoodProbe::Value
-    expect(MoodProbe::Series).to be < MoodProbe::Value
+    expect(Sonance::Categorical).to be < Sonance::Value
+    expect(Sonance::Series).to be < Sonance::Value
   end
 end

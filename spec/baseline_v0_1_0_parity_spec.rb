@@ -1,11 +1,11 @@
 require "fileutils"
 
 baseline_fixture_names =
-  Pathname(__dir__).join("fixtures/mood_probe/baseline_v0_1_0").glob("*.json").map(&:basename).sort
+  Pathname(__dir__).join("fixtures/sonance/baseline_v0_1_0").glob("*.json").map(&:basename).sort
 raise "no baseline fixtures discovered" if baseline_fixture_names.empty?
 
-RSpec.describe "mood_probe v0.1.0 algebraic parity" do
-  let(:fixture_root) { Pathname(__dir__).join("fixtures/mood_probe") }
+RSpec.describe "sonance v0.1.0 algebraic parity" do
+  let(:fixture_root) { Pathname(__dir__).join("fixtures/sonance") }
   let(:baseline_dir) { fixture_root.join("baseline_v0_1_0") }
   let(:golden_dir) { fixture_root.join("golden") }
   let(:head_mapping) do

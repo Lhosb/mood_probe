@@ -1,13 +1,13 @@
 require "open3"
 
 plan_fixture_names =
-  Pathname(__dir__).join("fixtures/mood_probe/plans").glob("*.json").map(&:basename).sort
+  Pathname(__dir__).join("fixtures/sonance/plans").glob("*.json").map(&:basename).sort
 raise "no plan fixtures discovered" if plan_fixture_names.empty?
 
 RSpec.describe "committed plans at the Python boundary" do
   let(:root) { Pathname(__dir__).join("..").expand_path }
-  let(:script) { root.join("python/mood_probe_extract.py") }
-  let(:fixture_dir) { root.join("spec/fixtures/mood_probe/plans") }
+  let(:script) { root.join("python/sonance_extract.py") }
+  let(:fixture_dir) { root.join("spec/fixtures/sonance/plans") }
 
   it "parses every byte-identical committed plan fixture without importing Essentia" do
     Dir.mktmpdir do |dir|
@@ -62,13 +62,13 @@ RSpec.describe "committed plans at the Python boundary" do
       import sys
       from pathlib import Path
 
-      spec = importlib.util.spec_from_file_location("mood_probe_extract", sys.argv[1])
+      spec = importlib.util.spec_from_file_location("sonance_extract", sys.argv[1])
       module = importlib.util.module_from_spec(spec)
       spec.loader.exec_module(module)
       try:
           module.validate_plan(json.loads(Path(sys.argv[2]).read_text()), Path(sys.argv[3]))
       except (json.JSONDecodeError, module.PlanValidationError) as exc:
-          print(f"mood_probe plan invalid: {exc}", file=sys.stderr)
+          print(f"sonance plan invalid: {exc}", file=sys.stderr)
           raise SystemExit(2)
       print(Path(sys.argv[2]).name)
     PYTHON

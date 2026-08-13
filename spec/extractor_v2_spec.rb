@@ -1,4 +1,4 @@
-RSpec.describe MoodProbe::Extractor do
+RSpec.describe Sonance::Extractor do
   let(:backend) do
     double(
       "backend",
@@ -58,11 +58,11 @@ RSpec.describe MoodProbe::Extractor do
 
   it "does not memoize a failed environment preflight" do
     allow(backend).to receive(:preflight_environment!)
-      .and_raise(MoodProbe::ConfigurationError, "missing Python")
+      .and_raise(Sonance::ConfigurationError, "missing Python")
 
     2.times do
       expect { extractor.verify!(descriptors: [:bpm_rhythm2013]) }
-        .to raise_error(MoodProbe::ConfigurationError, "missing Python")
+        .to raise_error(Sonance::ConfigurationError, "missing Python")
     end
 
     expect(backend).to have_received(:preflight_environment!).twice
@@ -77,13 +77,13 @@ RSpec.describe MoodProbe::Extractor do
       )
 
       expect { unavailable.verify!(descriptors: [:bpm_rhythm2013]) }
-        .to raise_error(MoodProbe::ConfigurationError, /unable to launch Python/)
+        .to raise_error(Sonance::ConfigurationError, /unable to launch Python/)
     end
   end
 
   it "does not let algorithm-only verification satisfy a later model-backed analysis" do
     Dir.mktmpdir do |dir|
-      real_store = MoodProbe::ModelStore.new(dir, registry: MoodProbe::Registry.default)
+      real_store = Sonance::ModelStore.new(dir, registry: Sonance::Registry.default)
       scoped = described_class.new(
         models_dir: dir,
         backend:,
@@ -92,7 +92,7 @@ RSpec.describe MoodProbe::Extractor do
 
       expect(scoped.verify!(descriptors: [:bpm_rhythm2013])).to be(true)
       expect { scoped.analyze("track.wav", descriptors: [:mood_happy_musicnn]) }
-        .to raise_error(MoodProbe::ConfigurationError, /missing model.*msd-musicnn-1\.pb/)
+        .to raise_error(Sonance::ConfigurationError, /missing model.*msd-musicnn-1\.pb/)
       expect(backend).not_to have_received(:analyze)
     end
   end
@@ -116,19 +116,19 @@ RSpec.describe MoodProbe::Extractor do
   }.each do |description, test_case|
     it "raises and stops the batch for #{description}" do
       allow(backend).to receive(:analyze)
-        .with(Pathname("one.wav"), plan: kind_of(MoodProbe::Plan))
+        .with(Pathname("one.wav"), plan: kind_of(Sonance::Plan))
         .and_return(test_case.fetch(:payload))
       allow(backend).to receive(:analyze)
-        .with(Pathname("two.wav"), plan: kind_of(MoodProbe::Plan))
+        .with(Pathname("two.wav"), plan: kind_of(Sonance::Plan))
         .and_return(test_case.fetch(:payload))
 
       expect do
         extractor.analyze_all(%w[one.wav two.wav], descriptors: test_case.fetch(:requested))
-      end.to raise_error(MoodProbe::SchemaError, test_case.fetch(:message))
+      end.to raise_error(Sonance::SchemaError, test_case.fetch(:message))
       expect(backend).to have_received(:analyze)
-        .with(Pathname("one.wav"), plan: kind_of(MoodProbe::Plan)).once
+        .with(Pathname("one.wav"), plan: kind_of(Sonance::Plan)).once
       expect(backend).not_to have_received(:analyze)
-        .with(Pathname("two.wav"), plan: kind_of(MoodProbe::Plan))
+        .with(Pathname("two.wav"), plan: kind_of(Sonance::Plan))
     end
   end
 
@@ -138,7 +138,7 @@ RSpec.describe MoodProbe::Extractor do
 
     analysis = extractor.analyze("track.wav", descriptors: [:embedding_musicnn])
 
-    expect(analysis[:embedding_musicnn]).to be_a(MoodProbe::Vector)
+    expect(analysis[:embedding_musicnn]).to be_a(Sonance::Vector)
     expect(analysis[:embedding_musicnn].values.length).to eq(200)
   end
 
@@ -148,7 +148,7 @@ RSpec.describe MoodProbe::Extractor do
 
     expect { extractor.analyze("track.wav", descriptors: [:embedding_musicnn]) }
       .to raise_error(
-        MoodProbe::MalformedOutputError,
+        Sonance::MalformedOutputError,
         /embedding_musicnn.*expected 200.*got 199/
       )
   end

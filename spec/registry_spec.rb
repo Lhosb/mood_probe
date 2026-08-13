@@ -1,4 +1,4 @@
-RSpec.describe MoodProbe::Registry do
+RSpec.describe Sonance::Registry do
   # rubocop:disable Naming/VariableNumber
   subject(:registry) { described_class.default }
 
@@ -48,7 +48,7 @@ RSpec.describe MoodProbe::Registry do
   it "raises a gem configuration error for an unknown descriptor id" do
     expect { registry.fetch("tempo") }
       .to raise_error(
-        MoodProbe::ConfigurationError,
+        Sonance::ConfigurationError,
         /unknown descriptor: tempo.*valid descriptors:.*\bbpm_rhythm2013\b/
       )
   end
@@ -104,7 +104,7 @@ RSpec.describe MoodProbe::Registry do
   end
 
   it "does not retain the legacy positive-index registry" do
-    expect(defined?(MoodProbe::ModelRegistry)).to be_nil
+    expect(defined?(Sonance::ModelRegistry)).to be_nil
   end
 
   it "declares the required ranges and sanity ranges" do
@@ -127,10 +127,10 @@ RSpec.describe MoodProbe::Registry do
 
   it "raises when a hard descriptor has different native and sanity ranges" do
     expect do
-      MoodProbe::Descriptor.new(
+      Sonance::Descriptor.new(
         id: :invalid,
         kind: :scalar,
-        produced_by: MoodProbe::FromAlgorithm.new(
+        produced_by: Sonance::FromAlgorithm.new(
           name: "Example",
           output: "value",
           params: {},
@@ -157,17 +157,17 @@ RSpec.describe MoodProbe::Registry do
     )
     expect(registry.descriptors).not_to be_empty
     expect(registry.descriptors.map(&:produced_by))
-      .to all(be_a(MoodProbe::FromModel).or(be_a(MoodProbe::FromAlgorithm)))
+      .to all(be_a(Sonance::FromModel).or(be_a(Sonance::FromAlgorithm)))
   end
 
   it "defines Series without registering any series descriptor" do
-    expect(MoodProbe::Series).to be_a(Class)
+    expect(Sonance::Series).to be_a(Class)
     expect(registry.descriptors).not_to be_empty
     expect(registry.descriptors).not_to include(have_attributes(kind: :series))
   end
 
-  describe MoodProbe::Model do
-    subject(:model) { MoodProbe::Registry.default.model(:mood_happy_msd_musicnn_1) }
+  describe Sonance::Model do
+    subject(:model) { Sonance::Registry.default.model(:mood_happy_msd_musicnn_1) }
 
     it "accepts the valid default model metadata" do
       expect(model.filename).to eq("mood_happy-msd-musicnn-1.pb")

@@ -1,16 +1,16 @@
 RSpec.describe "real Python to Ruby plan protocol seam" do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
   let(:models_dir) { Pathname(Dir.mktmpdir) }
-  let(:backend) { MoodProbe::Backends::EssentiaPython.new(models_dir:) }
+  let(:backend) { Sonance::Backends::EssentiaPython.new(models_dir:) }
   let(:plan) do
-    MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(
-                        descriptors: %i[
-                          valence_emomusic
-                          arousal_emomusic
-                          mood_happy_musicnn
-                        ]
-                      )
+    Sonance::Planner.new(registry: Sonance::Registry.default)
+                    .plan_for(
+                      descriptors: %i[
+                        valence_emomusic
+                        arousal_emomusic
+                        mood_happy_musicnn
+                      ]
+                    )
   end
 
   around do |example|
@@ -36,7 +36,7 @@ RSpec.describe "real Python to Ruby plan protocol seam" do
       backend.analyze(path, plan:)
     end
 
-    expect(outcomes[1]).to be_a(MoodProbe::InferenceError)
+    expect(outcomes[1]).to be_a(Sonance::InferenceError)
     expect(outcomes.values_at(0, 2).map { |outcome| outcome.fetch("valence_emomusic") })
       .to eq([4.2, 4.2])
   end
@@ -46,7 +46,7 @@ RSpec.describe "real Python to Ruby plan protocol seam" do
       backend.analyze(path, plan:)
     end
 
-    expect(outcomes.values_at(1, 3)).to all(be_a(MoodProbe::MalformedOutputError))
+    expect(outcomes.values_at(1, 3)).to all(be_a(Sonance::MalformedOutputError))
     expect(outcomes.values_at(0, 2).map { |outcome| outcome.fetch("valence_emomusic") })
       .to eq([4.2, 4.2])
   end

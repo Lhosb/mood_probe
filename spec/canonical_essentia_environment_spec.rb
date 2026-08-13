@@ -60,7 +60,7 @@ RSpec.describe "canonical Essentia golden environment" do
   end
 
   it "prevents the golden generator from writing on arm64 before model loading" do
-    generator = Pathname(__dir__).join("fixtures/mood_probe/generate_goldens.rb")
+    generator = Pathname(__dir__).join("fixtures/sonance/generate_goldens.rb")
     ruby = <<~RUBY
       require #{Pathname(__dir__).join('support/canonical_essentia_environment').to_s.inspect}
       require "rbconfig"
@@ -69,7 +69,7 @@ RSpec.describe "canonical Essentia golden environment" do
       load ARGV.fetch(0)
     RUBY
     _stdout, stderr, status = Open3.capture3(
-      { "MOOD_PROBE_MODELS_DIR" => "/definitely/missing" },
+      { "SONANCE_MODELS_DIR" => "/definitely/missing" },
       RbConfig.ruby, "-e", ruby, generator.to_s
     )
 

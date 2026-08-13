@@ -1,10 +1,10 @@
-RSpec.describe MoodProbe::Extractor do
-  let(:backend) { instance_double(MoodProbe::Backends::EssentiaPython) }
-  let(:model_store) { instance_double(MoodProbe::ModelStore, verify!: true) }
+RSpec.describe Sonance::Extractor do
+  let(:backend) { instance_double(Sonance::Backends::EssentiaPython) }
+  let(:model_store) { instance_double(Sonance::ModelStore, verify!: true) }
   let(:extractor) do
     described_class.new(models_dir: "/models", backend:, model_store:)
   end
-  let(:plan) { kind_of(MoodProbe::Plan) }
+  let(:plan) { kind_of(Sonance::Plan) }
 
   before do
     allow(backend).to receive(:preflight_environment!).and_return(true)
@@ -16,16 +16,16 @@ RSpec.describe MoodProbe::Extractor do
     paths = %w[good-1.wav bad-1.wav good-2.wav bad-2.wav]
     allow(backend).to receive(:analyze).and_return(
       { mood_happy_musicnn: 0.5 },
-      MoodProbe::UnreadableAudioError.new("bad 1"),
+      Sonance::UnreadableAudioError.new("bad 1"),
       { mood_happy_musicnn: 0.9 },
-      MoodProbe::TimeoutError.new("bad 2")
+      Sonance::TimeoutError.new("bad 2")
     )
 
     results = extractor.analyze_all(paths, descriptors: [:mood_happy_musicnn])
 
     expect(results.map(&:path)).to eq(paths.map { |path| Pathname(path) })
     expect(results.map(&:ok?)).to eq([true, false, true, false])
-    expect(results.map(&:error).compact).to all(be_a(MoodProbe::TrackError))
+    expect(results.map(&:error).compact).to all(be_a(Sonance::TrackError))
     expect(results[2].analysis[:mood_happy_musicnn].value).to eq(0.9)
   end
 
@@ -62,28 +62,28 @@ RSpec.describe MoodProbe::Extractor do
 
   it "raises configuration errors before any file is processed" do
     allow(model_store).to receive(:verify!)
-      .and_raise(MoodProbe::ConfigurationError, "bad models")
+      .and_raise(Sonance::ConfigurationError, "bad models")
 
     expect { extractor.analyze_all(%w[one.wav two.wav], descriptors: [:mood_happy_musicnn]) }
-      .to raise_error(MoodProbe::ConfigurationError, "bad models")
+      .to raise_error(Sonance::ConfigurationError, "bad models")
     expect(backend).not_to have_received(:analyze)
   end
 
   it "still performs configuration preflight for an empty input list" do
     allow(backend).to receive(:preflight_environment!)
-      .and_raise(MoodProbe::ConfigurationError, "bad Python")
+      .and_raise(Sonance::ConfigurationError, "bad Python")
 
     expect { extractor.analyze_all([], descriptors: [:bpm_rhythm2013]) }
-      .to raise_error(MoodProbe::ConfigurationError, "bad Python")
+      .to raise_error(Sonance::ConfigurationError, "bad Python")
     expect(backend).not_to have_received(:analyze)
   end
 
   it "raises a per-track result error from analyze" do
     allow(backend).to receive(:analyze)
-      .and_return(MoodProbe::UnreadableAudioError.new("bad audio"))
+      .and_return(Sonance::UnreadableAudioError.new("bad audio"))
 
     expect { extractor.analyze("bad.wav", descriptors: [:mood_happy_musicnn]) }
-      .to raise_error(MoodProbe::UnreadableAudioError, "bad audio")
+      .to raise_error(Sonance::UnreadableAudioError, "bad audio")
   end
 
   it "accepts String and Pathname inputs" do
@@ -99,10 +99,10 @@ RSpec.describe MoodProbe::Extractor do
 
   it "retries descriptor verification after a failed plan preflight" do
     allow(backend).to receive(:preflight_plan!)
-      .and_raise(MoodProbe::BackendError, "preflight failed")
+      .and_raise(Sonance::BackendError, "preflight failed")
 
     expect { extractor.verify!(descriptors: [:mood_happy_musicnn]) }
-      .to raise_error(MoodProbe::BackendError, /preflight failed/)
+      .to raise_error(Sonance::BackendError, /preflight failed/)
 
     allow(backend).to receive(:preflight_plan!).and_return(true)
     expect(extractor.verify!(descriptors: [:mood_happy_musicnn])).to be(true)
@@ -115,7 +115,7 @@ RSpec.describe MoodProbe::Extractor do
     allow(backend).to receive(:analyze).with(Pathname("one.wav"), plan:)
                                        .and_return(mood_happy_musicnn: 0.5)
     allow(backend).to receive(:analyze).with(Pathname("two.wav"), plan:)
-                                       .and_raise(MoodProbe::BackendError, "invalid NDJSON")
+                                       .and_raise(Sonance::BackendError, "invalid NDJSON")
     allow(backend).to receive(:analyze).with(Pathname("three.wav"), plan:)
                                        .and_return(mood_happy_musicnn: 0.5)
 
@@ -124,7 +124,7 @@ RSpec.describe MoodProbe::Extractor do
         %w[one.wav two.wav three.wav],
         descriptors: [:mood_happy_musicnn]
       )
-    end.to raise_error(MoodProbe::BackendError, /invalid NDJSON/)
+    end.to raise_error(Sonance::BackendError, /invalid NDJSON/)
     expect(backend).not_to have_received(:analyze).with(Pathname("three.wav"), plan:)
   end
 
@@ -141,7 +141,7 @@ RSpec.describe MoodProbe::Extractor do
     )
 
     expect(results.map(&:ok?)).to eq([true, false, true])
-    expect(results[1].error).to be_a(MoodProbe::MalformedOutputError)
+    expect(results[1].error).to be_a(Sonance::MalformedOutputError)
     expect(results.values_at(0, 2).map { |result| result.analysis[:mood_happy_musicnn].value })
       .to eq([0.1, 0.4])
   end

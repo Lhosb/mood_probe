@@ -4,13 +4,13 @@ require "pathname"
 require "tempfile"
 require "timeout"
 
-module MoodProbe
+module Sonance
   module Backends
     # rubocop:disable Metrics/ClassLength
     class EssentiaPython
       STARTUP_GRACE = 10
       PLAN_ARGUMENT_LIMIT = 64 * 1024
-      SCRIPT_PATH = Pathname(__dir__).join("../../../python/mood_probe_extract.py").expand_path
+      SCRIPT_PATH = Pathname(__dir__).join("../../../python/sonance_extract.py").expand_path
 
       class CommandTimeout < StandardError; end
       class CommandLaunchError < StandardError; end
@@ -121,7 +121,7 @@ module MoodProbe
       end
 
       def analyze_all(paths, plan:)
-        raise ArgumentError, "plan must be a MoodProbe::Plan" unless plan.is_a?(Plan)
+        raise ArgumentError, "plan must be a Sonance::Plan" unless plan.is_a?(Plan)
 
         pathnames = paths.map { |path| Pathname(path) }
         result = run_analysis(pathnames, plan)
@@ -166,7 +166,7 @@ module MoodProbe
         return yield(["--plan-json", payload]) if payload.bytesize <= PLAN_ARGUMENT_LIMIT
 
         # This is a system-tmpdir subprocess handoff, not a durable models_dir artifact.
-        Tempfile.create(["mood-probe-plan", ".json"]) do |file|
+        Tempfile.create(["sonance-plan", ".json"]) do |file|
           file.write(payload)
           file.flush
           yield(["--plan-file", file.path])

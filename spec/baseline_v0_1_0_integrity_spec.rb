@@ -1,5 +1,5 @@
-RSpec.describe "mood_probe v0.1.0 frozen baseline" do
-  let(:baseline_dir) { Pathname(__dir__).join("fixtures/mood_probe/baseline_v0_1_0") }
+RSpec.describe "sonance v0.1.0 frozen baseline" do
+  let(:baseline_dir) { Pathname(__dir__).join("fixtures/sonance/baseline_v0_1_0") }
   let(:expected_sha256) do
     {
       "PROVENANCE.md" => "01161a4c404ea91198cb0a83118f0177d451f527d301bd9cdf0e7274ea62a2b2",
