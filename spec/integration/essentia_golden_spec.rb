@@ -21,10 +21,10 @@ RSpec.describe "Sonance Essentia goldens", :essentia do
     %i[
       valence_emomusic
       arousal_emomusic
-      danceability
-      mood_acoustic
-      mood_relaxed
-      mood_happy
+      danceability_musicnn
+      mood_acoustic_musicnn
+      mood_relaxed_musicnn
+      mood_happy_musicnn
     ]
   end
   let(:fixture_root) do

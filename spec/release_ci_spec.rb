@@ -6,6 +6,7 @@ RSpec.describe "release CI" do
   let(:workflow) { YAML.safe_load(workflow_source, aliases: true) }
   let(:jobs) { workflow.fetch("jobs") }
   let(:capture_source) { Pathname(__dir__).join("../script/capture_essentia_outputs.rb").read }
+  let(:descriptor_gate_source) { Pathname(__dir__).join("descriptor_id_integrity_spec.rb").read }
   let(:golden_spec_source) { Pathname(__dir__).join("integration/essentia_golden_spec.rb").read }
   let(:parity_spec_source) { Pathname(__dir__).join("baseline_v0_1_0_parity_spec.rb").read }
 
@@ -37,18 +38,10 @@ RSpec.describe "release CI" do
     expect(parity_spec_source).to include(
       'raise "no baseline fixtures discovered" if baseline_fixture_names.empty?'
     )
-  end
-
-  it "keeps every capture-script descriptor registered" do
-    descriptor_block = capture_source.match(/descriptors = %i\[(.*?)\]/m)
-    expect(descriptor_block).not_to be_nil
-
-    descriptor_ids = descriptor_block[1].scan(/[a-z][a-z0-9_]*/).map(&:to_sym)
-    expect(descriptor_ids).not_to be_empty
-
-    expect do
-      descriptor_ids.each { |id| Sonance::Registry.default.fetch(id) }
-    end.not_to raise_error
+    expect(descriptor_gate_source).to include(
+      'raise "no descriptor source files discovered" if descriptor_source_paths.empty?',
+      'raise "no descriptor ids discovered" if descriptor_id_occurrences.empty?'
+    )
   end
 
   it "separates transport, checksum drift, environment capability, and golden regression" do
