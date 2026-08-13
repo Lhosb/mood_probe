@@ -2,31 +2,54 @@ RSpec.describe MoodProbe::Registry do
   # rubocop:disable Naming/VariableNumber
   subject(:registry) { described_class.default }
 
+  it "indexes unique model and descriptor ids" do
+    model = registry.models.first
+    descriptor = registry.descriptors.first
+    custom_registry = described_class.new(models: [model], descriptors: [descriptor])
+
+    expect(custom_registry.model(model.id)).to equal(model)
+    expect(custom_registry.fetch(descriptor.id)).to equal(descriptor)
+  end
+
+  it "rejects duplicate descriptor ids" do
+    descriptor = registry.descriptors.first
+
+    expect { described_class.new(models: [], descriptors: [descriptor, descriptor]) }
+      .to raise_error(ArgumentError, /duplicate descriptor id: #{descriptor.id}/)
+  end
+
+  it "rejects duplicate model ids" do
+    model = registry.models.first
+
+    expect { described_class.new(models: [model, model], descriptors: []) }
+      .to raise_error(ArgumentError, /duplicate model id: #{model.id}/)
+  end
+
   it "registers the six current descriptors plus embedding and rhythm descriptors" do
     expect(registry.ids).to eq(
       %i[
         valence_emomusic
         arousal_emomusic
-        danceability
-        mood_acoustic
-        mood_relaxed
-        mood_happy
-        musicnn_embedding
-        bpm
-        beat_confidence
+        danceability_musicnn
+        mood_acoustic_musicnn
+        mood_relaxed_musicnn
+        mood_happy_musicnn
+        embedding_musicnn
+        bpm_rhythm2013
+        beat_confidence_rhythm2013
       ]
     )
   end
 
   it "accepts String descriptor ids" do
-    expect(registry.fetch("bpm")).to equal(registry.fetch(:bpm))
+    expect(registry.fetch("bpm_rhythm2013")).to equal(registry.fetch(:bpm_rhythm2013))
   end
 
   it "raises a gem configuration error for an unknown descriptor id" do
     expect { registry.fetch("tempo") }
       .to raise_error(
         MoodProbe::ConfigurationError,
-        /unknown descriptor: tempo.*valid descriptors:.*\bbpm\b/
+        /unknown descriptor: tempo.*valid descriptors:.*\bbpm_rhythm2013\b/
       )
   end
 
@@ -48,7 +71,7 @@ RSpec.describe MoodProbe::Registry do
 
   it "deep-freezes nested default registry metadata" do
     model = registry.model(:mood_happy_msd_musicnn_1)
-    descriptor = registry.fetch(:mood_happy)
+    descriptor = registry.fetch(:mood_happy_musicnn)
 
     expect { model.filename << ".tampered" }.to raise_error(FrozenError)
     expect { model.classes.first << "_tampered" }.to raise_error(FrozenError)
@@ -63,10 +86,10 @@ RSpec.describe MoodProbe::Registry do
 
   it "pins current head classes and their name-based selectors pending the Phase B upstream JSON gate" do
     expectations = {
-      danceability: [%w[danceable not_danceable], "danceable"],
-      mood_acoustic: [%w[acoustic non_acoustic], "acoustic"],
-      mood_relaxed: [%w[non_relaxed relaxed], "relaxed"],
-      mood_happy: [%w[happy non_happy], "happy"],
+      danceability_musicnn: [%w[danceable not_danceable], "danceable"],
+      mood_acoustic_musicnn: [%w[acoustic non_acoustic], "acoustic"],
+      mood_relaxed_musicnn: [%w[non_relaxed relaxed], "relaxed"],
+      mood_happy_musicnn: [%w[happy non_happy], "happy"],
       valence_emomusic: [%w[valence arousal], "valence"],
       arousal_emomusic: [%w[valence arousal], "arousal"]
     }
@@ -93,7 +116,7 @@ RSpec.describe MoodProbe::Registry do
       )
     end
 
-    %i[danceability mood_acoustic mood_relaxed mood_happy].each do |id|
+    %i[danceability_musicnn mood_acoustic_musicnn mood_relaxed_musicnn mood_happy_musicnn].each do |id|
       expect(registry.fetch(id)).to have_attributes(
         native_range: (0.0..1.0),
         range_kind: :hard,

@@ -4,6 +4,7 @@
 - Historical limitation: that commit does not record the command, model directory, model digests, container image, CPU, or other execution details used to produce those bytes. Its generation method is therefore unrecorded.
 - Current generator: `spec/fixtures/mood_probe/generate_goldens.rb`.
 - Current environment requirement: the generator calls `CanonicalEssentiaEnvironment.verify!` and requires detector-confirmed native x86_64, an Essentia Python installation, and the registry-pinned model files under `MOOD_PROBE_MODELS_DIR`.
+- Relabelling: the 0.3.0 descriptor-id commit containing this line renamed the four MusicNN keys in every JSON file without regenerating measurements. Before and after, the ordered-value manifest had SHA-256 `719c5e7e815a80e55c3fa83d6c6b47997ed2ef3d2a7aaa3a5814d9053f1d4828`, and `cmp` reported byte identity.
 
 To regenerate deliberately in the canonical environment:
 

@@ -5,7 +5,7 @@ RSpec.describe "python/mood_probe_extract.py" do
   let(:models_dir) { Pathname(Dir.mktmpdir) }
   let(:plan) do
     MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(descriptors: [:mood_happy])
+                      .plan_for(descriptors: [:mood_happy_musicnn])
   end
 
   around do |example|

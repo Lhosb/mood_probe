@@ -4,9 +4,9 @@ RSpec.describe MoodProbe::Planner do
   fixture_root = Pathname(__dir__).join("fixtures/mood_probe/plans")
 
   {
-    "musicnn_only" => %i[mood_happy],
-    "algorithm_only" => %i[bpm],
-    "mixed" => %i[bpm mood_happy],
+    "musicnn_only" => %i[mood_happy_musicnn],
+    "algorithm_only" => %i[bpm_rhythm2013],
+    "mixed" => %i[bpm_rhythm2013 mood_happy_musicnn],
     "emomusic" => %i[valence_emomusic]
   }.each do |fixture_name, descriptors|
     it "matches the committed #{fixture_name} plan fixture" do
@@ -20,11 +20,11 @@ RSpec.describe MoodProbe::Planner do
   end
 
   it "omits model graphs for an algorithm-only request" do
-    expect(planner.plan_for(descriptors: [:bpm]).graphs).to be_empty
+    expect(planner.plan_for(descriptors: [:bpm_rhythm2013]).graphs).to be_empty
   end
 
   it "pins the current inverted relaxed projection pending the Phase B upstream JSON gate" do
-    plan = planner.plan_for(descriptors: [:mood_relaxed])
+    plan = planner.plan_for(descriptors: [:mood_relaxed_musicnn])
 
     expect(plan.emit.fetch(0).fetch(:take)).to eq(index: 1)
   end
@@ -60,21 +60,21 @@ RSpec.describe MoodProbe::Planner do
   # rubocop:enable Naming/VariableNumber
 
   it "returns immutable required files" do
-    plan = planner.plan_for(descriptors: [:mood_happy])
+    plan = planner.plan_for(descriptors: [:mood_happy_musicnn])
 
     expect(plan.required_files).to be_frozen
     expect { plan.required_files << "extra.pb" }.to raise_error(FrozenError)
   end
 
   it "loads model and algorithm sample rates in dependency order" do
-    plan = planner.plan_for(descriptors: %i[bpm mood_happy])
+    plan = planner.plan_for(descriptors: %i[bpm_rhythm2013 mood_happy_musicnn])
 
     expect(plan.loads.map { |load| load.fetch(:sample_rate) }).to eq([16_000, 44_100])
   end
 
   it "lists only files required by the requested descriptors" do
-    expect(planner.plan_for(descriptors: [:bpm]).required_files).to eq([])
-    expect(planner.plan_for(descriptors: [:mood_happy]).required_files).to eq(
+    expect(planner.plan_for(descriptors: [:bpm_rhythm2013]).required_files).to eq([])
+    expect(planner.plan_for(descriptors: [:mood_happy_musicnn]).required_files).to eq(
       ["msd-musicnn-1.pb", "mood_happy-msd-musicnn-1.pb"]
     )
   end
@@ -90,7 +90,7 @@ RSpec.describe MoodProbe::Planner do
     )
 
     expect do
-      described_class.new(registry:).plan_for(descriptors: [:musicnn_embedding])
+      described_class.new(registry:).plan_for(descriptors: [:embedding_musicnn])
     end.to raise_error(
       MoodProbe::ConfigurationError,
       /unknown graph algorithm: custom_graph.*valid algorithms:.*tensorflow_predict_musicnn/

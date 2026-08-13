@@ -42,10 +42,10 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
 
       analysis = extractor.analyze(
         audio_dir.join("clicks.wav"),
-        descriptors: [:bpm]
+        descriptors: [:bpm_rhythm2013]
       )
 
-      expect(analysis[:bpm].value).to be_within(bpm_tolerance).of(ground_truth_bpm)
+      expect(analysis[:bpm_rhythm2013].value).to be_within(bpm_tolerance).of(ground_truth_bpm)
       expect(Pathname(models_dir).children).to be_empty
     end
   end
@@ -57,7 +57,7 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
       expect do
         extractor.analyze(
           audio_dir.join("clicks.wav"),
-          descriptors: %i[bpm mood_happy]
+          descriptors: %i[bpm_rhythm2013 mood_happy_musicnn]
         )
       end.to raise_error(
         MoodProbe::ConfigurationError,
@@ -226,7 +226,10 @@ RSpec.describe "MoodProbe offline Essentia execution", :essentia do
   def analyze_bpm(path)
     Dir.mktmpdir do |models_dir|
       extractor = MoodProbe::Extractor.new(models_dir:, python_executable: python)
-      return extractor.analyze(path, descriptors: [:bpm])[:bpm].value
+      return extractor.analyze(
+        path,
+        descriptors: [:bpm_rhythm2013]
+      )[:bpm_rhythm2013].value
     end
   end
 

@@ -203,27 +203,27 @@ module MoodProbe
           emomusic_descriptor(:valence_emomusic, "valence"),
           emomusic_descriptor(:arousal_emomusic, "arousal"),
           probability_descriptor(
-            :danceability,
+            :danceability_musicnn,
             :danceability_msd_musicnn_1,
             "danceable"
           ),
           probability_descriptor(
-            :mood_acoustic,
+            :mood_acoustic_musicnn,
             :mood_acoustic_msd_musicnn_1,
             "acoustic"
           ),
           probability_descriptor(
-            :mood_relaxed,
+            :mood_relaxed_musicnn,
             :mood_relaxed_msd_musicnn_1,
             "relaxed"
           ),
           probability_descriptor(
-            :mood_happy,
+            :mood_happy_musicnn,
             :mood_happy_msd_musicnn_1,
             "happy"
           ),
           Descriptor.new(
-            id: :musicnn_embedding,
+            id: :embedding_musicnn,
             kind: :vector,
             produced_by: FromModel.new(model: :msd_musicnn_1, select: nil),
             native_range: nil,
@@ -233,8 +233,8 @@ module MoodProbe
             shape: 200,
             notes: "Penultimate-layer MSD MusiCNN embedding."
           ),
-          rhythm_descriptor(:bpm, "bpm", :bpm),
-          rhythm_descriptor(:beat_confidence, "confidence", :unitless)
+          rhythm_descriptor(:bpm_rhythm2013, "bpm", :bpm),
+          rhythm_descriptor(:beat_confidence_rhythm2013, "confidence", :unitless)
         ].freeze
       end
 
@@ -296,10 +296,12 @@ module MoodProbe
     attr_reader :models, :descriptors
 
     def initialize(models:, descriptors:)
+      validate_unique_ids!(models, :model)
+      validate_unique_ids!(descriptors, :descriptor)
       @models = deep_freeze(models.dup)
       @descriptors = deep_freeze(descriptors.dup)
-      @models_by_id = models.to_h { |model| [model.id, model] }.freeze
-      @descriptors_by_id = descriptors.to_h { |descriptor| [descriptor.id, descriptor] }.freeze
+      @models_by_id = @models.to_h { |model| [model.id, model] }.freeze
+      @descriptors_by_id = @descriptors.to_h { |descriptor| [descriptor.id, descriptor] }.freeze
     end
 
     def ids
@@ -319,6 +321,11 @@ module MoodProbe
     end
 
     private
+
+    def validate_unique_ids!(records, type)
+      duplicate_id = records.map(&:id).tally.find { |_id, count| count > 1 }&.first
+      raise ArgumentError, "duplicate #{type} id: #{duplicate_id}" if duplicate_id
+    end
 
     def deep_freeze(value)
       case value

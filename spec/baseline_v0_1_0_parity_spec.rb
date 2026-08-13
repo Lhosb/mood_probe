@@ -10,10 +10,10 @@ RSpec.describe "mood_probe v0.1.0 algebraic parity" do
   let(:golden_dir) { fixture_root.join("golden") }
   let(:head_mapping) do
     {
-      "danceability" => "danceability",
-      "mood_acoustic" => "mood_acoustic",
-      "mood_relaxed" => "mood_relaxed",
-      "mood_happy" => "mood_happy",
+      "danceability" => "danceability_musicnn",
+      "mood_acoustic" => "mood_acoustic_musicnn",
+      "mood_relaxed" => "mood_relaxed_musicnn",
+      "mood_happy" => "mood_happy_musicnn",
       "valence" => "valence_emomusic",
       "arousal" => "arousal_emomusic"
     }

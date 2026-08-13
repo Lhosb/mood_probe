@@ -11,7 +11,7 @@ The gem ships neither Essentia nor model weights. See `NOTICE`.
 
 ```ruby
 extractor = MoodProbe::Extractor.new(models_dir: "/path/to/models")
-descriptors = %i[bpm musicnn_embedding]
+descriptors = %i[bpm_rhythm2013 embedding_musicnn]
 extractor.verify!(descriptors:)
 features = extractor.analyze("/path/to/audio.wav", descriptors:)
 results = extractor.analyze_all(["one.wav", Pathname("two.wav")], descriptors:)
@@ -26,7 +26,7 @@ Model downloads are always explicit:
 mood-probe --models-dir /path/to/models models fetch
 mood-probe --models-dir /path/to/models models verify
 mood-probe descriptors
-mood-probe --models-dir /path/to/models --descriptors bpm,musicnn_embedding analyze track.wav
+mood-probe --models-dir /path/to/models --descriptors bpm_rhythm2013,embedding_musicnn analyze track.wav
 ```
 
 `models verify` verifies the registered model files and their digests. It no
@@ -62,6 +62,11 @@ extension paths:
 
 Both paths require a gem patch; a registry row alone cannot add executable
 code.
+
+Descriptor ids follow `<quantity>_<producer>` without exceptions. Model-backed
+rows use the model family (for example, `danceability_musicnn`), while
+algorithm-backed rows use the algorithm slug (for example,
+`bpm_rhythm2013`).
 
 ## Security notes
 

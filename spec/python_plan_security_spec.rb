@@ -90,7 +90,7 @@ RSpec.describe "Python plan security boundary" do
         "algorithms" => [],
         "emit" => [
           {
-            "id" => "mood_happy",
+            "id" => "mood_happy_musicnn",
             "kind" => "scalar",
             "from" => "g0",
             "take" => { "index" => 0 },
@@ -391,7 +391,7 @@ RSpec.describe "Python plan security boundary" do
 
   def emit_definition(take)
     {
-      "id" => "mood_happy",
+      "id" => "mood_happy_musicnn",
       "kind" => "scalar",
       "from" => "g0",
       "take" => take,

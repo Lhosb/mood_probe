@@ -15,14 +15,14 @@ RSpec.describe "mood-probe CLI" do
 
   it "passes comma-separated descriptor ids to analyze" do
     stdout, stderr, status = run_cli(
-      "--descriptors", "bpm,beat_confidence", "analyze", "track.wav",
+      "--descriptors", "bpm_rhythm2013,beat_confidence_rhythm2013", "analyze", "track.wav",
       ruby_options: "-r#{root.join('spec/support/recording_cli_analyze.rb')}"
     )
 
     expect(status).to be_success, stderr
     expect(JSON.parse(stdout)).to eq(
       "path" => "track.wav",
-      "descriptors" => %w[bpm beat_confidence]
+      "descriptors" => %w[bpm_rhythm2013 beat_confidence_rhythm2013]
     )
   end
 

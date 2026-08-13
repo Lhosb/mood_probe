@@ -10,11 +10,11 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
   end
   let(:model_plan) do
     MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(descriptors: [:mood_happy])
+                      .plan_for(descriptors: [:mood_happy_musicnn])
   end
   let(:algorithm_plan) do
     MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(descriptors: [:bpm])
+                      .plan_for(descriptors: [:bpm_rhythm2013])
   end
 
   it "preflights the Python and Essentia environment independently" do
@@ -212,7 +212,10 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
 
   {
     "no result" => "",
-    "wrong path" => JSON.generate(path: "other.wav", features: { "mood_happy" => 0.4 }) << "\n",
+    "wrong path" => JSON.generate(
+      path: "other.wav",
+      features: { "mood_happy_musicnn" => 0.4 }
+    ) << "\n",
     "omitted features" => JSON.generate(path: "track.wav") << "\n",
     "invalid NDJSON" => "not json\n"
   }.each do |description, stdout|
@@ -246,7 +249,7 @@ RSpec.describe MoodProbe::Backends::EssentiaPython do
 
   def valid_features
     {
-      "mood_happy" => 0.5
+      "mood_happy_musicnn" => 0.5
     }
   end
 end

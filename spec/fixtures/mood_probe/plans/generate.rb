@@ -7,9 +7,9 @@ require "mood_probe"
 
 planner = MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
 plans = {
-  musicnn_only: %i[mood_happy],
-  algorithm_only: %i[bpm],
-  mixed: %i[bpm mood_happy],
+  musicnn_only: %i[mood_happy_musicnn],
+  algorithm_only: %i[bpm_rhythm2013],
+  mixed: %i[bpm_rhythm2013 mood_happy_musicnn],
   emomusic: %i[valence_emomusic]
 }
 

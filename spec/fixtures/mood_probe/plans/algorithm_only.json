@@ -18,7 +18,7 @@
   ],
   "emit": [
     {
-      "id": "bpm",
+      "id": "bpm_rhythm2013",
       "kind": "scalar",
       "from": "a0",
       "take": {

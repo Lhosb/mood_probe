@@ -15,7 +15,7 @@ module SignalDeathSpec
 
       path = command.fetch(2)
       features = {
-        mood_happy: @analyze_calls / 10.0
+        mood_happy_musicnn: @analyze_calls / 10.0
       }
       success_result(JSON.generate(path:, features:) << "\n")
     end
@@ -46,14 +46,14 @@ RSpec.describe "signal-killed backend isolation" do
       command_runner: SignalDeathSpec::Runner.new
     )
     plan = MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                             .plan_for(descriptors: [:mood_happy])
+                             .plan_for(descriptors: [:mood_happy_musicnn])
     paths = %w[one.wav two.wav signal.wav four.wav]
 
     results = paths.map { |path| backend.analyze(path, plan:) }
 
     expect(results[2]).to be_a(MoodProbe::BackendProcessError)
     expect(results[2].message).to include("signal 9")
-    expect(results.values_at(0, 1, 3).map { |result| result.fetch("mood_happy") })
+    expect(results.values_at(0, 1, 3).map { |result| result.fetch("mood_happy_musicnn") })
       .to eq([0.1, 0.2, 0.4])
   end
 end

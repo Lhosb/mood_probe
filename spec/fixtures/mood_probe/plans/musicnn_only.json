@@ -29,7 +29,7 @@
   "algorithms": [],
   "emit": [
     {
-      "id": "mood_happy",
+      "id": "mood_happy_musicnn",
       "kind": "scalar",
       "from": "h0",
       "take": {

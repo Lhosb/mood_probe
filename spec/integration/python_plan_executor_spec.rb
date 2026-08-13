@@ -8,7 +8,7 @@ RSpec.describe "real Python plan executor seam" do
   let(:planner) { MoodProbe::Planner.new(registry:) }
 
   it "completes requested descriptor ids end to end through the real subprocess seam" do
-    plan = planner.plan_for(descriptors: %i[valence_emomusic mood_happy])
+    plan = planner.plan_for(descriptors: %i[valence_emomusic mood_happy_musicnn])
 
     Dir.mktmpdir do |models_dir|
       prepare_models(plan, models_dir)
@@ -17,21 +17,21 @@ RSpec.describe "real Python plan executor seam" do
       with_fake_essentia do
         expect(backend.analyze("good.wav", plan:)).to eq(
           "valence_emomusic" => 4.2,
-          "mood_happy" => 0.5
+          "mood_happy_musicnn" => 0.5
         )
       end
     end
   end
 
   it "emits a complete reduced MusiCNN embedding when no projection is requested" do
-    plan = planner.plan_for(descriptors: [:musicnn_embedding])
+    plan = planner.plan_for(descriptors: [:embedding_musicnn])
 
     Dir.mktmpdir do |models_dir|
       prepare_models(plan, models_dir)
       backend = MoodProbe::Backends::EssentiaPython.new(models_dir:)
 
       with_fake_essentia do
-        embedding = backend.analyze("good.wav", plan:).fetch("musicnn_embedding")
+        embedding = backend.analyze("good.wav", plan:).fetch("embedding_musicnn")
 
         expect(embedding).to eq(Array.new(200, 0.25))
       end
@@ -39,7 +39,7 @@ RSpec.describe "real Python plan executor seam" do
   end
 
   it "constructs one shared embedding and invokes it once per path" do
-    plan = planner.plan_for(descriptors: %i[mood_happy mood_relaxed])
+    plan = planner.plan_for(descriptors: %i[mood_happy_musicnn mood_relaxed_musicnn])
 
     Dir.mktmpdir do |dir|
       models_dir = Pathname(dir).join("models")
@@ -54,11 +54,11 @@ RSpec.describe "real Python plan executor seam" do
       )
 
       with_fake_essentia(trace:) do
-        extractor.verify!(descriptors: %i[mood_happy mood_relaxed])
+        extractor.verify!(descriptors: %i[mood_happy_musicnn mood_relaxed_musicnn])
         trace.write("")
         results = extractor.analyze_all(
           paths,
-          descriptors: %i[mood_happy mood_relaxed]
+          descriptors: %i[mood_happy_musicnn mood_relaxed_musicnn]
         )
 
         expect(results).to all(be_ok)
@@ -80,7 +80,7 @@ RSpec.describe "real Python plan executor seam" do
     "negative-infinity-vector.wav" => "-Infinity"
   }.each do |path, value_name|
     it "maps nested #{value_name} in a Vector to a precise malformed-output error" do
-      plan = planner.plan_for(descriptors: [:musicnn_embedding])
+      plan = planner.plan_for(descriptors: [:embedding_musicnn])
 
       Dir.mktmpdir do |models_dir|
         prepare_models(plan, models_dir)
@@ -90,7 +90,7 @@ RSpec.describe "real Python plan executor seam" do
           error = backend.analyze(path, plan:)
 
           expect(error).to be_a(MoodProbe::MalformedOutputError)
-          expect(error.message).to include("musicnn_embedding[17]", value_name)
+          expect(error.message).to include("embedding_musicnn[17]", value_name)
         end
       end
     end
@@ -102,7 +102,7 @@ RSpec.describe "real Python plan executor seam" do
     "negative-infinity-categorical.wav" => "-Infinity"
   }.each do |path, value_name|
     it "maps nested #{value_name} in a Categorical distribution to malformed output" do
-      base_plan = planner.plan_for(descriptors: [:beat_confidence])
+      base_plan = planner.plan_for(descriptors: [:beat_confidence_rhythm2013])
       plan = base_plan.with(
         emit: [
           base_plan.emit.first.merge(
@@ -128,7 +128,7 @@ RSpec.describe "real Python plan executor seam" do
   end
 
   it "reports a non-finite Categorical distribution key precisely" do
-    base_plan = planner.plan_for(descriptors: [:beat_confidence])
+    base_plan = planner.plan_for(descriptors: [:beat_confidence_rhythm2013])
     plan = base_plan.with(
       emit: [
         base_plan.emit.first.merge(
@@ -153,7 +153,7 @@ RSpec.describe "real Python plan executor seam" do
   end
 
   it "isolates an unsupported serialization type within a real subprocess batch" do
-    base_plan = planner.plan_for(descriptors: [:beat_confidence])
+    base_plan = planner.plan_for(descriptors: [:beat_confidence_rhythm2013])
     plan = base_plan.with(
       emit: [
         base_plan.emit.first.merge(
@@ -182,7 +182,7 @@ RSpec.describe "real Python plan executor seam" do
   end
 
   it "isolates a non-finite descriptor within a real subprocess batch" do
-    plan = planner.plan_for(descriptors: [:musicnn_embedding])
+    plan = planner.plan_for(descriptors: [:embedding_musicnn])
 
     Dir.mktmpdir do |models_dir|
       prepare_models(plan, models_dir)
@@ -195,10 +195,10 @@ RSpec.describe "real Python plan executor seam" do
         )
 
         expect(outcomes.values_at(0, 2)).to all(
-          include("musicnn_embedding" => Array.new(200, 0.25))
+          include("embedding_musicnn" => Array.new(200, 0.25))
         )
         expect(outcomes[1]).to be_a(MoodProbe::MalformedOutputError)
-        expect(outcomes[1].message).to include("musicnn_embedding[17]", "NaN")
+        expect(outcomes[1].message).to include("embedding_musicnn[17]", "NaN")
       end
     end
   end

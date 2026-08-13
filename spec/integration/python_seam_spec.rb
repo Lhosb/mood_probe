@@ -4,7 +4,13 @@ RSpec.describe "real Python to Ruby plan protocol seam" do
   let(:backend) { MoodProbe::Backends::EssentiaPython.new(models_dir:) }
   let(:plan) do
     MoodProbe::Planner.new(registry: MoodProbe::Registry.default)
-                      .plan_for(descriptors: %i[valence_emomusic arousal_emomusic mood_happy])
+                      .plan_for(
+                        descriptors: %i[
+                          valence_emomusic
+                          arousal_emomusic
+                          mood_happy_musicnn
+                        ]
+                      )
   end
 
   around do |example|
@@ -21,7 +27,7 @@ RSpec.describe "real Python to Ruby plan protocol seam" do
     expect(backend.analyze("good-1.wav", plan:)).to eq(
       "valence_emomusic" => 4.2,
       "arousal_emomusic" => 5.8,
-      "mood_happy" => 0.5
+      "mood_happy_musicnn" => 0.5
     )
   end
 

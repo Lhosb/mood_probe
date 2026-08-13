@@ -132,10 +132,10 @@ RSpec.describe "MoodProbe Essentia goldens", :essentia do
     {
       valence: (actual.fetch(:valence_emomusic) - 1.0) / 8.0,
       arousal: (actual.fetch(:arousal_emomusic) - 1.0) / 8.0,
-      danceability: actual.fetch(:danceability),
-      mood_acoustic: actual.fetch(:mood_acoustic),
-      mood_relaxed: actual.fetch(:mood_relaxed),
-      mood_happy: actual.fetch(:mood_happy)
+      danceability: actual.fetch(:danceability_musicnn),
+      mood_acoustic: actual.fetch(:mood_acoustic_musicnn),
+      mood_relaxed: actual.fetch(:mood_relaxed_musicnn),
+      mood_happy: actual.fetch(:mood_happy_musicnn)
     }
   end
 

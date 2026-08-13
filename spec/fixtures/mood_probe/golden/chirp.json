@@ -1,8 +1,8 @@
 {
   "valence_emomusic": 4.121700763702393,
   "arousal_emomusic": 4.241766929626465,
-  "danceability": 0.1826469749212265,
-  "mood_acoustic": 0.002000634092837572,
-  "mood_relaxed": 0.9997396469116211,
-  "mood_happy": 0.0016696399543434381
+  "danceability_musicnn": 0.1826469749212265,
+  "mood_acoustic_musicnn": 0.002000634092837572,
+  "mood_relaxed_musicnn": 0.9997396469116211,
+  "mood_happy_musicnn": 0.0016696399543434381
 }
