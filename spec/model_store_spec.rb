@@ -23,6 +23,30 @@ RSpec.describe MoodProbe::ModelStore do
     end
   end
 
+  it "verifies a locally supplied model from a non-allowlisted HTTPS source" do
+    foreign_model = model.with(source_url: "https://models.example.test/model.pb")
+    foreign_registry = MoodProbe::Registry.new(models: [foreign_model], descriptors: [])
+
+    Dir.mktmpdir do |dir|
+      File.binwrite(File.join(dir, "model.pb"), "expected")
+
+      expect(described_class.new(dir, registry: foreign_registry).verify!(filenames: ["model.pb"]))
+        .to be(true)
+    end
+  end
+
+  it "rejects downloading a model from a non-allowlisted host" do
+    foreign_model = model.with(source_url: "https://models.example.test/model.pb")
+    foreign_registry = MoodProbe::Registry.new(models: [foreign_model], descriptors: [])
+    downloader = instance_double(MoodProbe::ModelStore::Downloader)
+
+    Dir.mktmpdir do |dir|
+      expect(downloader).not_to receive(:download)
+      expect { described_class.new(dir, registry: foreign_registry, downloader:).fetch! }
+        .to raise_error(MoodProbe::BackendError, /models\.example\.test.*not allowed/)
+    end
+  end
+
   it "raises ConfigurationError for missing or mismatched requested models" do
     Dir.mktmpdir do |dir|
       store = described_class.new(dir, registry:)

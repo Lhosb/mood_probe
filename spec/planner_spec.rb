@@ -78,4 +78,23 @@ RSpec.describe MoodProbe::Planner do
       ["msd-musicnn-1.pb", "mood_happy-msd-musicnn-1.pb"]
     )
   end
+
+  # rubocop:disable Naming/VariableNumber
+  it "raises a gem configuration error for an unknown graph algorithm" do
+    models = MoodProbe::Registry.default.models.map do |model|
+      model.id == :msd_musicnn_1 ? model.with(algorithm: :custom_graph) : model
+    end
+    registry = MoodProbe::Registry.new(
+      models:,
+      descriptors: MoodProbe::Registry.default.descriptors
+    )
+
+    expect do
+      described_class.new(registry:).plan_for(descriptors: [:musicnn_embedding])
+    end.to raise_error(
+      MoodProbe::ConfigurationError,
+      /unknown graph algorithm: custom_graph.*valid algorithms:.*tensorflow_predict_musicnn/
+    )
+  end
+  # rubocop:enable Naming/VariableNumber
 end

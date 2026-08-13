@@ -18,6 +18,18 @@ RSpec.describe MoodProbe::Registry do
     )
   end
 
+  it "accepts String descriptor ids" do
+    expect(registry.fetch("bpm")).to equal(registry.fetch(:bpm))
+  end
+
+  it "raises a gem configuration error for an unknown descriptor id" do
+    expect { registry.fetch("tempo") }
+      .to raise_error(
+        MoodProbe::ConfigurationError,
+        /unknown descriptor: tempo.*valid descriptors:.*\bbpm\b/
+      )
+  end
+
   it "records complete immutable model metadata" do
     expect(registry.models.length).to eq(6)
     expect(registry.models).to all(
@@ -158,13 +170,9 @@ RSpec.describe MoodProbe::Registry do
         .to raise_error(ArgumentError, /String/)
     end
 
-    it "rejects model sources outside the Essentia host" do
-      expect { model.with(source_url: "https://example.test/model.pb") }
-        .to raise_error(ArgumentError, /essentia\.upf\.edu/)
-      expect { model.with(source_url: "https://essentia.upf.edu.evil.test/model.pb") }
-        .to raise_error(ArgumentError, /essentia\.upf\.edu/)
-      expect { model.with(source_url: "https://essentia.upf.edu@evil.test/model.pb") }
-        .to raise_error(ArgumentError, /essentia\.upf\.edu/)
+    it "accepts HTTPS model sources outside the download allowlist" do
+      expect(model.with(source_url: "https://models.example.test/model.pb").source_url)
+        .to eq("https://models.example.test/model.pb")
     end
 
     it "requires a SHA-256 digest and positive byte length" do

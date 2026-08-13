@@ -43,10 +43,6 @@ module MoodProbe
 
       uri = URI.parse(source_url)
       raise ArgumentError, "source_url must use HTTPS" unless uri.is_a?(URI::HTTPS)
-      # This host restriction must become capability-aware when C.2's allow_custom_models lands.
-      return if uri.host == "essentia.upf.edu"
-
-      raise ArgumentError, "source_url must use the essentia.upf.edu host"
     rescue URI::InvalidURIError
       raise ArgumentError, "source_url must be a valid HTTPS URL"
     end
@@ -311,7 +307,11 @@ module MoodProbe
     end
 
     def fetch(id)
-      @descriptors_by_id.fetch(id.to_sym)
+      normalized_id = id.to_sym
+      @descriptors_by_id.fetch(normalized_id) do
+        raise ConfigurationError,
+              "unknown descriptor: #{normalized_id}; valid descriptors: #{ids.join(', ')}"
+      end
     end
 
     def model(id)

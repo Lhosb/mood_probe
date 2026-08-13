@@ -76,7 +76,7 @@ module MoodProbe
         graph = {
           ref: references.fetch(model.id),
           file: model.filename,
-          algorithm: GRAPH_ALGORITHMS.fetch(model.algorithm),
+          algorithm: graph_algorithm(model.algorithm),
           output: model.output_node
         }
         if model.embedding
@@ -87,6 +87,13 @@ module MoodProbe
         end
         graph.freeze
       end.freeze
+    end
+
+    def graph_algorithm(id)
+      GRAPH_ALGORITHMS.fetch(id) do
+        raise ConfigurationError,
+              "unknown graph algorithm: #{id}; valid algorithms: #{GRAPH_ALGORITHMS.keys.join(', ')}"
+      end
     end
 
     def algorithm_plan(rows)

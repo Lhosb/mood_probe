@@ -7,6 +7,18 @@ require "uri"
 
 module MoodProbe
   class ModelStore
+    DOWNLOAD_HOST = "essentia.upf.edu".freeze
+
+    def self.validate_download_uri!(url)
+      uri = url.is_a?(URI) ? url : URI(url)
+      raise BackendError, "model downloads require HTTPS: #{uri}" unless uri.is_a?(URI::HTTPS)
+      return uri if uri.host == DOWNLOAD_HOST
+
+      raise BackendError, "model download host #{uri.host.inspect} is not allowed"
+    rescue URI::InvalidURIError
+      raise BackendError, "model download URL is invalid: #{url}"
+    end
+
     # Pathname operations bind an inode at verify time, not backend reopen time; sound only while the
     # models root is not attacker-writable: https://github.com/Lhosb/mood_probe/issues/2
     # rubocop:disable Metrics/ClassLength
@@ -164,7 +176,7 @@ module MoodProbe
       private
 
       def request(uri, redirects_remaining)
-        raise BackendError, "model downloads require HTTPS: #{uri}" unless uri.is_a?(URI::HTTPS)
+        uri = ModelStore.validate_download_uri!(uri)
 
         response = Net::HTTP.get_response(uri)
         return response unless response.is_a?(Net::HTTPRedirection)
@@ -210,10 +222,11 @@ module MoodProbe
     end
 
     def fetch_model!(model)
+      source_uri = self.class.validate_download_uri!(model.source_url)
       temporary = model_files.create_temporary(model.filename)
       output = temporary.file
 
-      downloader.download(model.source_url, output)
+      downloader.download(source_uri.to_s, output)
       unless model_files.digest_io(output) == model.sha256
         raise ConfigurationError, "downloaded model digest mismatch: #{model.filename}"
       end
