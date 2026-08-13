@@ -24,22 +24,28 @@ options = {
   timeout_per_file: 60,
   python_executable: "python3"
 }
+descriptors = nil
 
 OptionParser.new do |parser|
-  parser.banner = "Usage: mood-probe [options] analyze FILE | models verify | models fetch"
+  parser.banner = "Usage: mood-probe [options] analyze FILE | descriptors | models verify | models fetch"
   parser.on("--models-dir DIR") { |value| options[:models_dir] = value }
   parser.on("--timeout SECONDS", Integer) { |value| options[:timeout_per_file] = value }
   parser.on("--python EXECUTABLE") { |value| options[:python_executable] = value }
+  parser.on("--descriptors IDS", Array) { |values| descriptors = values.map(&:strip).reject(&:empty?).map(&:to_sym) }
 end.parse!(ARGV)
 
 begin
   command = ARGV.shift
-  extractor = MoodProbe::Extractor.new(**options)
 
   case command
   when "analyze"
     path = ARGV.shift or abort("analyze requires FILE")
-    puts JSON.pretty_generate(extractor.analyze(path).to_h)
+    abort("analyze requires --descriptors IDS") if descriptors.nil? || descriptors.empty?
+
+    extractor = MoodProbe::Extractor.new(**options)
+    puts JSON.pretty_generate(extractor.analyze(path, descriptors:).to_h)
+  when "descriptors"
+    puts MoodProbe::Registry.default.ids
   when "models"
     subcommand = ARGV.shift
     case subcommand
@@ -58,7 +64,7 @@ begin
       abort("models requires verify or fetch")
     end
   else
-    abort("expected analyze or models")
+    abort("expected analyze, descriptors, or models")
   end
 rescue MoodProbe::Error => e
   warn e.message
