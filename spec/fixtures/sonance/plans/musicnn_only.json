@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "loads": [
+    {
+      "sample_rate": 16000
+    }
+  ],
+  "graphs": [
+    {
+      "ref": "emb0",
+      "file": "msd-musicnn-1.pb",
+      "algorithm": "TensorflowPredictMusiCNN",
+      "output": "model/dense/BiasAdd",
+      "sample_rate": 16000,
+      "input": {
+        "audio": 16000
+      }
+    },
+    {
+      "ref": "h0",
+      "file": "mood_happy-msd-musicnn-1.pb",
+      "algorithm": "TensorflowPredict2D",
+      "output": "model/Softmax",
+      "input": {
+        "graph": "emb0"
+      }
+    }
+  ],
+  "algorithms": [],
+  "emit": [
+    {
+      "id": "mood_happy_musicnn",
+      "kind": "scalar",
+      "from": "h0",
+      "take": {
+        "index": 0
+      },
+      "reduce": "mean_over_frames"
+    }
+  ],
+  "required_files": [
+    "msd-musicnn-1.pb",
+    "mood_happy-msd-musicnn-1.pb"
+  ]
+}

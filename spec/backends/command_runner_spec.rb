@@ -1,6 +1,6 @@
 require "rbconfig"
 
-RSpec.describe MoodProbe::Backends::EssentiaPython::CommandRunner do
+RSpec.describe Sonance::Backends::EssentiaPython::CommandRunner do
   it "terminates the subprocess group and returns promptly on timeout" do
     runner = described_class.new
     child_pid = nil
@@ -15,7 +15,7 @@ RSpec.describe MoodProbe::Backends::EssentiaPython::CommandRunner do
       started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       expect { runner.call([RbConfig.ruby, "-e", script, pid_file], timeout: 0.2) }
-        .to raise_error(MoodProbe::Backends::EssentiaPython::CommandTimeout)
+        .to raise_error(Sonance::Backends::EssentiaPython::CommandTimeout)
 
       elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
       child_pid = Integer(File.read(pid_file))

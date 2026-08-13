@@ -4,7 +4,7 @@ module SignalDeathSpec
   class Runner
     def initialize
       @analyze_calls = 0
-      @real_runner = MoodProbe::Backends::EssentiaPython::CommandRunner.new
+      @real_runner = Sonance::Backends::EssentiaPython::CommandRunner.new
     end
 
     def call(command, timeout:)
@@ -15,12 +15,7 @@ module SignalDeathSpec
 
       path = command.fetch(2)
       features = {
-        valence: @analyze_calls / 10.0,
-        arousal: 0.6,
-        danceability: 0.7,
-        mood_acoustic: 0.2,
-        mood_relaxed: 0.8,
-        mood_happy: 0.5
+        mood_happy_musicnn: @analyze_calls / 10.0
       }
       success_result(JSON.generate(path:, features:) << "\n")
     end
@@ -35,7 +30,7 @@ module SignalDeathSpec
     end
 
     def success_result(stdout = "")
-      MoodProbe::Backends::EssentiaPython::CommandRunner::Result.new(
+      Sonance::Backends::EssentiaPython::CommandRunner::Result.new(
         stdout:,
         stderr: "",
         exitstatus: 0
@@ -46,21 +41,19 @@ end
 
 RSpec.describe "signal-killed backend isolation" do
   it "keeps siblings aligned when one real child dies by signal" do
-    model_store = instance_double(MoodProbe::ModelStore, verify!: true)
-    backend = MoodProbe::Backends::EssentiaPython.new(
+    backend = Sonance::Backends::EssentiaPython.new(
       models_dir: "/models",
-      command_runner: SignalDeathSpec::Runner.new,
-      model_store:
+      command_runner: SignalDeathSpec::Runner.new
     )
-    extractor = MoodProbe::Extractor.new(models_dir: "/models", backend:)
+    plan = Sonance::Planner.new(registry: Sonance::Registry.default)
+                           .plan_for(descriptors: [:mood_happy_musicnn])
     paths = %w[one.wav two.wav signal.wav four.wav]
 
-    results = extractor.analyze_all(paths)
+    results = paths.map { |path| backend.analyze(path, plan:) }
 
-    expect(results.map(&:path)).to eq(paths.map { |path| Pathname(path) })
-    expect(results.map(&:ok?)).to eq([true, true, false, true])
-    expect(results[2].error).to be_a(MoodProbe::BackendProcessError)
-    expect(results[2].error.message).to include("signal 9")
-    expect(results.values_at(0, 1, 3).map { |result| result.features.to_h[:valence] }).to eq([0.1, 0.2, 0.4])
+    expect(results[2]).to be_a(Sonance::BackendProcessError)
+    expect(results[2].message).to include("signal 9")
+    expect(results.values_at(0, 1, 3).map { |result| result.fetch("mood_happy_musicnn") })
+      .to eq([0.1, 0.2, 0.4])
   end
 end

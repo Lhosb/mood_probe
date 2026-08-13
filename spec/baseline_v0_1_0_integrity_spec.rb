@@ -1,7 +1,8 @@
-RSpec.describe "mood_probe v0.1.0 frozen baseline" do
-  let(:baseline_dir) { Pathname(__dir__).join("fixtures/mood_probe/baseline_v0_1_0") }
+RSpec.describe "sonance v0.1.0 frozen baseline" do
+  let(:baseline_dir) { Pathname(__dir__).join("fixtures/sonance/baseline_v0_1_0") }
   let(:expected_sha256) do
     {
+      "PROVENANCE.md" => "01161a4c404ea91198cb0a83118f0177d451f527d301bd9cdf0e7274ea62a2b2",
       "README.md" => "a85485fc8c4277325d85282435002a6a099674c11acdfa5f109a0b3a76313a1a",
       "chirp.json" => "b2a04b178b125e9ea823d122288472f9dc0665af3d44124bc38829b95131a0fb",
       "clicks.json" => "50c7ee158661219c41dc54c7eda799bbf7529a60f995bdde62fd5796ba7c2c84",

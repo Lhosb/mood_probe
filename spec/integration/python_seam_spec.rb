@@ -1,54 +1,53 @@
-RSpec.describe "real Python to Ruby Features seam" do
+RSpec.describe "real Python to Ruby plan protocol seam" do
   let(:root) { Pathname(__dir__).join("../..").expand_path }
-  let(:model_store) { instance_double(MoodProbe::ModelStore, verify!: true) }
+  let(:models_dir) { Pathname(Dir.mktmpdir) }
+  let(:backend) { Sonance::Backends::EssentiaPython.new(models_dir:) }
+  let(:plan) do
+    Sonance::Planner.new(registry: Sonance::Registry.default)
+                    .plan_for(
+                      descriptors: %i[
+                        valence_emomusic
+                        arousal_emomusic
+                        mood_happy_musicnn
+                      ]
+                    )
+  end
 
   around do |example|
     original = ENV.fetch("PYTHONPATH", nil)
     ENV["PYTHONPATH"] = root.join("spec/support/fake_essentia").to_s
+    plan.required_files.each { |filename| models_dir.join(filename).binwrite("model") }
     example.run
   ensure
     ENV["PYTHONPATH"] = original
+    FileUtils.remove_entry(models_dir)
   end
 
-  it "produces the six documented floats end to end" do
-    backend = MoodProbe::Backends::EssentiaPython.new(models_dir: "/models", model_store:)
-    extractor = MoodProbe::Extractor.new(models_dir: "/models", backend:)
-
-    result = extractor.analyze_all(["good-1.wav"]).first
-
-    expect(result).to be_ok
-    expect(result.features.to_h).to eq(
-      valence: 0.4,
-      arousal: 0.6,
-      danceability: 0.7,
-      mood_acoustic: 0.2,
-      mood_relaxed: 0.8,
-      mood_happy: 0.5
+  it "parses requested native descriptor values" do
+    expect(backend.analyze("good-1.wav", plan:)).to eq(
+      "valence_emomusic" => 4.2,
+      "arousal_emomusic" => 5.8,
+      "mood_happy_musicnn" => 0.5
     )
   end
 
-  it "keeps real Python inference failures positionally aligned" do
-    backend = MoodProbe::Backends::EssentiaPython.new(models_dir: "/models", model_store:)
-    extractor = MoodProbe::Extractor.new(models_dir: "/models", backend:)
+  it "keeps inference failures isolated between real subprocess calls" do
+    outcomes = %w[good-1.wav crash.wav good-2.wav].map do |path|
+      backend.analyze(path, plan:)
+    end
 
-    results = extractor.analyze_all(%w[good-1.wav crash.wav good-2.wav])
-
-    expect(results.map(&:ok?)).to eq([true, false, true])
-    expect(results[1].error).to be_a(MoodProbe::InferenceError)
-    expect(results.values_at(0, 2).map { |result| result.features.to_h[:valence] }).to eq([0.4, 0.4])
+    expect(outcomes[1]).to be_a(Sonance::InferenceError)
+    expect(outcomes.values_at(0, 2).map { |outcome| outcome.fetch("valence_emomusic") })
+      .to eq([4.2, 4.2])
   end
 
-  it "keeps real Python non-finite outputs positionally aligned" do
-    backend = MoodProbe::Backends::EssentiaPython.new(models_dir: "/models", model_store:)
-    extractor = MoodProbe::Extractor.new(models_dir: "/models", backend:)
+  it "keeps non-finite failures isolated between real subprocess calls" do
+    outcomes = %w[good-1.wav nan-audio.wav good-2.wav infinity-audio.wav].map do |path|
+      backend.analyze(path, plan:)
+    end
 
-    results = extractor.analyze_all(
-      %w[good-1.wav nan-audio.wav good-2.wav infinity-audio.wav good-3.wav]
-    )
-
-    expect(results.map(&:ok?)).to eq([true, false, true, false, true])
-    expect(results.values_at(1, 3).map(&:error)).to all(be_a(MoodProbe::MalformedOutputError))
-    expect(results.values_at(0, 2, 4).map { |result| result.features.to_h[:valence] })
-      .to eq([0.4, 0.4, 0.4])
+    expect(outcomes.values_at(1, 3)).to all(be_a(Sonance::MalformedOutputError))
+    expect(outcomes.values_at(0, 2).map { |outcome| outcome.fetch("valence_emomusic") })
+      .to eq([4.2, 4.2])
   end
 end
