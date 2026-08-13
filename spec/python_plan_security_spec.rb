@@ -223,6 +223,40 @@ RSpec.describe "Python plan security boundary" do
     end
   end
 
+  it "rejects a short RhythmExtractor2013 tempo interval supplied by defaults" do
+    Dir.mktmpdir do |dir|
+      setup = <<~PYTHON
+        module._ALGORITHM_PARAM_DEFAULTS["RhythmExtractor2013"] = {
+            "minTempo": 180,
+            "maxTempo": 199,
+        }
+      PYTHON
+      _stdout, stderr, status = validate_with_table_setup(
+        algorithm_plan,
+        setup:,
+        dir:
+      )
+
+      expect(status.exitstatus).to eq(2)
+      expect(stderr).to include("algorithms[0].params", "at least 20 BPM")
+    end
+  end
+
+  it "validates a standalone algorithm with no tempo parameters" do
+    Dir.mktmpdir do |dir|
+      setup = <<~PYTHON
+        module._ALGORITHM_PARAMS["KeyExtractor"] = {}
+        module._ALGORITHM_PARAM_DOMAINS["KeyExtractor"] = {}
+        module._ALGORITHM_PARAM_DEFAULTS["KeyExtractor"] = {}
+      PYTHON
+      plan = deep_merge_algorithm(name: "KeyExtractor", params: {})
+      stdout, stderr, status = validate_with_table_setup(plan, setup:, dir:)
+
+      expect(status).to be_success, stderr
+      expect(stdout).to eq("valid\n")
+    end
+  end
+
   it "default-denies params for graph algorithms that declare none" do
     Dir.mktmpdir do |dir|
       sentinel = Pathname(dir).join("imported")
@@ -383,6 +417,31 @@ RSpec.describe "Python plan security boundary" do
       "--models-dir", dir,
       "--plan-json", payload,
       "--verify"
+    )
+  end
+
+  def validate_with_table_setup(plan, setup:, dir:)
+    harness = <<~PYTHON
+      import importlib.util
+      import json
+      import sys
+      from pathlib import Path
+
+      spec = importlib.util.spec_from_file_location("mood_probe_extract", sys.argv[1])
+      module = importlib.util.module_from_spec(spec)
+      spec.loader.exec_module(module)
+      #{setup}
+      try:
+          module.validate_plan(json.loads(sys.argv[2]), Path(sys.argv[3]))
+      except module.PlanValidationError as exc:
+          print(f"mood_probe plan invalid: {exc}", file=sys.stderr)
+          raise SystemExit(2)
+      print("valid")
+    PYTHON
+
+    Open3.capture3(
+      "python3", "-c", harness,
+      script.to_s, JSON.generate(plan), dir
     )
   end
 

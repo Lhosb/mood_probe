@@ -49,6 +49,14 @@ _ALGORITHM_PARAM_DEFAULTS = {
         "maxTempo": 208,
     }
 }
+_ALGORITHM_MINIMUM_SPANS = {
+    "RhythmExtractor2013": {
+        "minimum": "minTempo",
+        "maximum": "maxTempo",
+        "distance": 20,
+        "units": "BPM",
+    }
+}
 
 
 class PlanValidationError(ValueError):
@@ -349,12 +357,19 @@ def validate_params(params, algorithm_name: str, location: str) -> None:
                 f"{parameter_location} must be within {domain[0]}..{domain[1]}"
             )
 
+    minimum_span = _ALGORITHM_MINIMUM_SPANS.get(algorithm_name)
+    if minimum_span is None:
+        return
+
     defaults = _ALGORITHM_PARAM_DEFAULTS[algorithm_name]
-    min_tempo = params.get("minTempo", defaults["minTempo"])
-    max_tempo = params.get("maxTempo", defaults["maxTempo"])
-    if max_tempo - min_tempo < 20:
+    minimum_name = minimum_span["minimum"]
+    maximum_name = minimum_span["maximum"]
+    minimum = params.get(minimum_name, defaults[minimum_name])
+    maximum = params.get(maximum_name, defaults[maximum_name])
+    if maximum - minimum < minimum_span["distance"]:
         raise PlanValidationError(
-            f"{location}.params maxTempo must exceed minTempo by at least 20 BPM"
+            f"{location}.params {maximum_name} must exceed {minimum_name} by at least "
+            f"{minimum_span['distance']} {minimum_span['units']}"
         )
 
 
