@@ -2,17 +2,18 @@ module MoodProbe
   # Base class for every public mood_probe failure.
   class Error < StandardError; end
 
-  # Base class returned for a failure limited to one input track.
+  # Base class returned in batch results, or raised by `Extractor#analyze`,
+  # for a failure limited to one input track.
   class TrackError < Error; end
-  # Returned when an audio file cannot be opened or decoded.
+  # Returned in a batch, or raised by `Extractor#analyze`, when audio cannot be opened or decoded.
   class UnreadableAudioError < TrackError; end
-  # Returned when extracting one track exceeds its configured timeout.
+  # Returned in a batch, or raised by `Extractor#analyze`, when one track times out.
   class TimeoutError < TrackError; end
-  # Returned when a descriptor value is non-finite, out of range, or malformed.
+  # Returned in a batch, or raised by `Extractor#analyze`, for a malformed descriptor value.
   class MalformedOutputError < TrackError; end
-  # Returned when Essentia cannot infer descriptors for one track.
+  # Returned in a batch, or raised by `Extractor#analyze`, when inference fails for one track.
   class InferenceError < TrackError; end
-  # Returned when the backend process fails while handling one track.
+  # Returned in a batch, or raised by `Extractor#analyze`, when the process fails for one track.
   class BackendProcessError < TrackError; end
 
   # Base class raised for failures that invalidate the extraction run.
