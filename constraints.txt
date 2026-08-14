@@ -1,0 +1,18 @@
+# Python constraints for the Essentia Docker environment.
+# numpy is pinned because it is the mechanism of the reduce/take non-commutativity
+# documented in issues #9, #16, and #17. A bit-identity gate on an unpinned numpy
+# will go red for environment drift and erode trust in the gate.
+#
+# How this version was determined:
+#   Measured on linux/amd64 (Hetzner remote builder) using ruby:4.0.1-slim as the
+#   base image, python3 3.13.5 from apt, in a venv, with:
+#     pip install --no-cache-dir "essentia-tensorflow==2.1b6.dev1389"
+#     python3 -c "import numpy; print(numpy.__version__)"
+#   Result: 2.5.2
+#   Date measured: 2026-08-14
+#
+# To update: re-run the measurement command above on the canonical linux/amd64
+# environment, update this pin, update CANONICAL_NUMPY_VERSION in
+# spec/support/canonical_essentia_environment.rb, and regenerate any golden
+# fixtures that depend on numpy's output.
+numpy==2.5.2
