@@ -13,11 +13,11 @@ module CanonicalEssentiaEnvironment
     File.read(cpuinfo)[/^model name\s*:\s*(.+)$/, 1] || "unknown CPU"
   end
 
-  def self.numpy_version(python: "/usr/local/essentia-venv/bin/python3")
-    return "numpy unavailable" unless File.exist?(python)
+  def self.numpy_version(python: ENV.fetch("SONANCE_PYTHON", "/usr/local/essentia-venv/bin/python3"))
+    return "unavailable" unless File.exist?(python)
 
     result = `#{python} -c "import numpy; print(numpy.__version__)" 2>/dev/null`.strip
-    result.empty? ? "numpy unavailable" : result
+    result.empty? ? "unavailable" : result
   end
 
   def self.verify!(
