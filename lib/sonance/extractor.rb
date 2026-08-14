@@ -68,6 +68,19 @@ module Sonance
 
     # Extracts descriptors from multiple audio files while preserving input order.
     #
+    # The whole batch runs through one backend subprocess, so its stdout and stderr both grow
+    # linearly with `paths.length` and are subject to
+    # {Backends::EssentiaPython::CommandRunner::MAX_STREAM_BYTES}. Backend stderr dominates and
+    # scales with audio duration, so the ceiling is reached at roughly 750 paths of 10-second
+    # audio and roughly 40 paths of 3-minute tracks. Exceeding it raises a `BackendError` naming
+    # the limit; it cannot truncate or corrupt a value.
+    #
+    # **Callers processing a large library should chunk**, for example
+    # `paths.each_slice(25).flat_map { |slice| extractor.analyze_all(slice, descriptors:) }`.
+    # Chunking is left to the caller because the right slice size depends on track duration and
+    # on how the caller wants a mid-batch failure handled, and because every chunk pays the
+    # backend's process and model-load startup again.
+    #
     # @param paths [Array<String, Pathname>] audio paths
     # @param descriptors [Array<Symbol, String>] descriptor ids to extract
     # @return [Array<Result>] successful analyses and returned per-track errors

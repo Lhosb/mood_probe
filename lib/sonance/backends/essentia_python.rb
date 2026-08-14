@@ -27,13 +27,28 @@ module Sonance
         # parsing, so an unbounded backend drives the parent to exhaustion
         # (https://github.com/Lhosb/sonance/issues/6).
         #
-        # Derived rather than picked: the widest stdout payload is one NDJSON line per path
-        # carrying all nine descriptors, whose 200-float embedding dominates at roughly 4.5 KiB
-        # per path, so 32 MiB is on the order of 7,000 paths in a single batch. Essentia's own
-        # stderr chatter measured about 8 KiB per path, so the same ceiling is on the order of
-        # 4,000 paths. Both are far beyond any batch this gem is asked to run -- callers analyze
-        # one path or a handful -- so the bound cannot bite legitimate output, which is the point:
-        # it exists to stop unbounded growth, not to enforce a budget.
+        # This ceiling CAN be reached by legitimate output, because `analyze_all` funnels a whole
+        # batch through one subprocess and one pair of streams, so both grow linearly with batch
+        # size and nothing caps batch size first. Measured against real Essentia at 32 MiB:
+        #
+        #   stdout  ~4.5 KiB per path   (a full-precision nine-descriptor NDJSON line measured
+        #                                4,513 B, dominated by the 200-float embedding at 3,830 B)
+        #                                -> binds at roughly 7,400 paths
+        #   stderr  scales with AUDIO DURATION, not just path count, at roughly 4.6 KiB per second
+        #                                of audio: 44,968 B/path for the 10 s fixtures, but
+        #                                832,447 B/path for a 180 s track
+        #                                -> binds at roughly 750 paths of 10 s audio, and at
+        #                                   roughly 40 paths of 3-minute tracks
+        #
+        # So stderr binds first and binds early: a few albums of real tracks in one `analyze_all`
+        # call will reach it. That is a loud, correctly attributed BackendError which cannot
+        # corrupt a value, but callers with large libraries must chunk `analyze_all` -- see its
+        # documentation on Extractor. Raising this ceiling is not the fix; the stderr volume is
+        # repeated Essentia warning text that is elided to STDERR_MESSAGE_BYTES before it can ever
+        # reach a caller, so retaining it whole is waste. Tracked in
+        # https://github.com/Lhosb/sonance/issues/6.
+        #
+        # For the single-path calls this gem is mostly used with, neither stream comes close.
         MAX_STREAM_BYTES = 32 * 1024 * 1024
         STREAM_CHUNK_BYTES = 64 * 1024
 
@@ -122,6 +137,10 @@ module Sonance
         # Best-effort: the child frequently exits on its own between crossing the ceiling and
         # this call, and a group whose leader has already reaped can answer ESRCH or, on
         # macOS, EPERM. Either means "already gone", which is the outcome we wanted.
+        #
+        # PORTABILITY -- do not simplify this rescue to ESRCH alone. Linux answers ESRCH where
+        # macOS answers EPERM, so dropping EPERM stays green on Linux CI and reintroduces the
+        # bug on macOS. Verified by mutation: dropping EPERM fails on macOS in 10/10 runs.
         def kill_group(wait_thread)
           Process.kill("KILL", -wait_thread.pid)
         rescue Errno::ESRCH, Errno::EPERM
