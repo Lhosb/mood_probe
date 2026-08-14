@@ -30,6 +30,76 @@ RSpec.describe Sonance::Backends::EssentiaPython::CommandRunner do
     end
   end
 
+  # Bounds are exercised through stub_const at a small size so the boundary can be hit
+  # exactly. The real ceiling is asserted separately below, so these are not testing a
+  # constant that only exists in the spec.
+  describe "bounded stream reads" do
+    let(:runner) { described_class.new }
+    let(:limit) { 4096 }
+
+    before do
+      stub_const("#{described_class}::MAX_STREAM_BYTES", limit)
+      stub_const("#{described_class}::STREAM_CHUNK_BYTES", 1024)
+    end
+
+    def write_bytes(count, stream:)
+      runner.call(
+        [RbConfig.ruby, "-e", "#{stream}.write('x' * #{count}); #{stream}.flush"],
+        timeout: 10
+      )
+    end
+
+    { "STDOUT" => "stdout", "STDERR" => "stderr" }.each do |stream, name|
+      it "accepts #{name} of exactly the limit" do
+        result = write_bytes(limit, stream:)
+
+        expect(result.exitstatus).to eq(0)
+        expect(result.public_send(name).bytesize).to eq(limit)
+      end
+
+      it "raises a BackendError naming the limit for #{name} one byte past it" do
+        expect { write_bytes(limit + 1, stream:) }.to raise_error(
+          Sonance::BackendError,
+          /exceeded the #{limit} byte #{name} limit.*terminated and its output discarded/m
+        )
+      end
+    end
+
+    it "discards the partial buffer rather than returning truncated output" do
+      expect { write_bytes(limit * 4, stream: "STDOUT") }
+        .to raise_error(Sonance::BackendError)
+    end
+
+    it "terminates a subprocess that keeps writing after the limit" do
+      script = "loop { STDOUT.write('x' * 8192) }"
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      expect { runner.call([RbConfig.ruby, "-e", script], timeout: 10) }
+        .to raise_error(Sonance::BackendError, /exceeded the #{limit} byte stdout limit/)
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 5
+    end
+
+    it "leaves output under the limit byte-identical" do
+      payload = "line\n" * 100
+      result = runner.call(
+        [RbConfig.ruby, "-e", "STDOUT.write(#{payload.inspect})"],
+        timeout: 10
+      )
+
+      expect(result.stdout).to eq(payload)
+      expect(result.exitstatus).to eq(0)
+    end
+  end
+
+  # Non-vacuity floor: the boundary examples above stub the ceiling, so assert the shipped
+  # value independently. Without this they would pass against any constant, including none.
+  it "ships a stream ceiling large enough never to bite a realistic batch" do
+    expect(described_class::MAX_STREAM_BYTES).to eq(32 * 1024 * 1024)
+    expect(described_class::STREAM_CHUNK_BYTES).to be < described_class::MAX_STREAM_BYTES
+  end
+
   def process_gone?(pid)
     deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 1
     loop do
