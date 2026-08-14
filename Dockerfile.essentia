@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
 
+# The digest below is the multi-arch OCI index (application/vnd.oci.image.index.v1+json),
+# not the amd64 child manifest. Both linux/amd64 and linux/arm64 are present in the index.
+# Do not replace it with the platform-specific child digest — that breaks arm64 builds.
 FROM ruby@sha256:939bb2710ba0a49ffdba9470b4e562c9dfc5ee6718ba5a5214f1d421d0414d29
 
 RUN apt-get update -qq && \
