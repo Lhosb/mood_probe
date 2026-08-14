@@ -4,6 +4,8 @@ This gem interoperates with Essentia, which is distributed separately under
 the GNU Affero General Public License v3.0. Essentia code is not included in
 this gem.
 
+  AGPL-3.0: https://www.gnu.org/licenses/agpl-3.0.html
+
 The model files referenced by Sonance::Registry are distributed
 separately by the Music Technology Group at Universitat Pompeu Fabra. Their
 compliance floor is Creative Commons Attribution-NonCommercial-NoDerivatives
@@ -11,6 +13,30 @@ compliance floor is Creative Commons Attribution-NonCommercial-NoDerivatives
 ShareAlike and NoDerivatives terms; use is non-commercial under either reading,
 and this notice makes no claim of per-model variation. Model files are not
 included in this gem.
+
+  CC BY-NC-ND 4.0: https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+Source URLs for the six model files (derived from lib/sonance/registry.rb):
+
+  Models base URL: https://essentia.upf.edu/models/
+
+  msd-musicnn-1.pb
+    https://essentia.upf.edu/models/feature-extractors/musicnn/msd-musicnn-1.pb
+
+  danceability-msd-musicnn-1.pb
+    https://essentia.upf.edu/models/classification-heads/danceability/danceability-msd-musicnn-1.pb
+
+  emomusic-msd-musicnn-2.pb
+    https://essentia.upf.edu/models/classification-heads/emomusic/emomusic-msd-musicnn-2.pb
+
+  mood_acoustic-msd-musicnn-1.pb
+    https://essentia.upf.edu/models/classification-heads/mood_acoustic/mood_acoustic-msd-musicnn-1.pb
+
+  mood_happy-msd-musicnn-1.pb
+    https://essentia.upf.edu/models/classification-heads/mood_happy/mood_happy-msd-musicnn-1.pb
+
+  mood_relaxed-msd-musicnn-1.pb
+    https://essentia.upf.edu/models/classification-heads/mood_relaxed/mood_relaxed-msd-musicnn-1.pb
 
 Operators are responsible for reviewing and complying with the licenses for
 Essentia and each model before installing or using those separate components.
