@@ -187,6 +187,48 @@ RSpec.describe Sonance::Backends::EssentiaPython do
       .to raise_error(Sonance::BackendError, /crash/)
   end
 
+  # A single three-file run was measured emitting 24,948 bytes of Essentia warning chatter,
+  # every byte of which became the raised message (issue #6).
+  it "elides the middle of an oversized stderr while keeping the head and tail" do
+    head = "CONFIGURATION FAILED AT THE TOP\n"
+    tail = "\nTRACEBACK AT THE BOTTOM"
+    noise = "[ WARNING  ] No network created, or last created network has been deleted...\n"
+    stderr = head + (noise * 400) + tail
+    expect(stderr.bytesize).to be > described_class::STDERR_MESSAGE_BYTES
+
+    allow(runner).to receive(:call).and_return(
+      described_class::CommandRunner::Result.new(stdout: "", stderr:, exitstatus: 1)
+    )
+
+    message = nil
+    begin
+      backend.analyze("track.wav", plan: model_plan)
+    rescue Sonance::BackendError => e
+      message = e.message
+    end
+
+    elided = stderr.strip.bytesize - described_class::STDERR_MESSAGE_BYTES
+    expect(message).to start_with(head.strip)
+    expect(message).to end_with(tail.strip)
+    expect(message).to include("[... sonance elided #{elided} bytes of backend stderr ...]")
+    expect(message.bytesize).to be < stderr.bytesize
+  end
+
+  it "leaves a stderr within the message ceiling untouched" do
+    stderr = "short and complete diagnostic"
+    expect(stderr.bytesize).to be <= described_class::STDERR_MESSAGE_BYTES
+
+    allow(runner).to receive(:call).and_return(
+      described_class::CommandRunner::Result.new(stdout: "", stderr:, exitstatus: 1)
+    )
+
+    expect { backend.analyze("track.wav", plan: model_plan) }
+      .to raise_error(Sonance::BackendError) { |error|
+        expect(error.message).to eq(stderr)
+        expect(error.message).not_to include("sonance elided")
+      }
+  end
+
   it "keeps a nil exit status inside the Sonance error taxonomy" do
     allow(runner).to receive(:call).and_return(
       described_class::CommandRunner::Result.new(

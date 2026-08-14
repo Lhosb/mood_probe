@@ -10,12 +10,48 @@ module Sonance
     class EssentiaPython
       STARTUP_GRACE = 10
       PLAN_ARGUMENT_LIMIT = 64 * 1024
+      # Ceiling on how much backend stderr may become an exception message. A single
+      # three-file run was measured emitting 24,948 bytes of Essentia warning chatter, all of
+      # which became the raised message verbatim. Head and tail are both kept because the
+      # cause is usually in one or the other -- the configuration error at the top or the
+      # traceback at the bottom -- and the middle is repeated warning lines.
+      STDERR_MESSAGE_BYTES = 4 * 1024
+      STDERR_MESSAGE_HEAD = STDERR_MESSAGE_BYTES / 2
       SCRIPT_PATH = Pathname(__dir__).join("../../../python/sonance_extract.py").expand_path
 
       class CommandTimeout < StandardError; end
       class CommandLaunchError < StandardError; end
 
       class CommandRunner
+        # Ceiling on each captured stream. Both are held whole in memory before any protocol
+        # parsing, so an unbounded backend drives the parent to exhaustion
+        # (https://github.com/Lhosb/sonance/issues/6).
+        #
+        # This ceiling CAN be reached by legitimate output, because `analyze_all` funnels a whole
+        # batch through one subprocess and one pair of streams, so both grow linearly with batch
+        # size and nothing caps batch size first. Measured against real Essentia at 32 MiB:
+        #
+        #   stdout  ~4.5 KiB per path   (a full-precision nine-descriptor NDJSON line measured
+        #                                4,513 B, dominated by the 200-float embedding at 3,830 B)
+        #                                -> binds at roughly 7,400 paths
+        #   stderr  scales with AUDIO DURATION, not just path count, at roughly 4.6 KiB per second
+        #                                of audio: 44,968 B/path for the 10 s fixtures, but
+        #                                832,447 B/path for a 180 s track
+        #                                -> binds at roughly 750 paths of 10 s audio, and at
+        #                                   roughly 40 paths of 3-minute tracks
+        #
+        # So stderr binds first and binds early: a few albums of real tracks in one `analyze_all`
+        # call will reach it. That is a loud, correctly attributed BackendError which cannot
+        # corrupt a value, but callers with large libraries must chunk `analyze_all` -- see its
+        # documentation on Extractor. Raising this ceiling is not the fix; the stderr volume is
+        # repeated Essentia warning text that is elided to STDERR_MESSAGE_BYTES before it can ever
+        # reach a caller, so retaining it whole is waste. Tracked in
+        # https://github.com/Lhosb/sonance/issues/6.
+        #
+        # For the single-path calls this gem is mostly used with, neither stream comes close.
+        MAX_STREAM_BYTES = 32 * 1024 * 1024
+        STREAM_CHUNK_BYTES = 64 * 1024
+
         Result = Struct.new(:stdout, :stderr, :exitstatus, :termsig, keyword_init: true)
 
         def call(command, timeout:)
@@ -28,26 +64,87 @@ module Sonance
         private
 
         def capture(command, timeout:)
-          stdout_text = stderr_text = nil
-          status = nil
+          overflowed = []
+          captured = nil
 
           Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thread|
             stdin.close
-            stdout_reader = Thread.new { stdout.read }
-            stderr_reader = Thread.new { stderr.read }
+            captured = pump(stdout, stderr, wait_thread, timeout, overflowed)
+          end
 
-            begin
-              Timeout.timeout(timeout) { status = wait_thread.value }
-            rescue Timeout::Error
-              terminate(wait_thread)
-              raise CommandTimeout
-            ensure
-              stdout_text = collect(stdout_reader, stdout)
-              stderr_text = collect(stderr_reader, stderr)
-            end
+          raise_stream_limit!(overflowed.first) unless overflowed.empty?
+
+          captured
+        end
+
+        def pump(stdout, stderr, wait_thread, timeout, overflowed)
+          readers = start_readers(stdout, stderr, wait_thread, overflowed)
+          status = nil
+
+          begin
+            Timeout.timeout(timeout) { status = wait_thread.value }
+          rescue Timeout::Error
+            terminate(wait_thread)
+            raise CommandTimeout
+          ensure
+            stdout_text = collect(readers.fetch(:stdout), stdout)
+            stderr_text = collect(readers.fetch(:stderr), stderr)
           end
 
           [stdout_text, stderr_text, status]
+        end
+
+        def start_readers(stdout, stderr, wait_thread, overflowed)
+          record_overflow = lambda do |stream_name|
+            overflowed << stream_name
+            kill_group(wait_thread)
+          end
+
+          {
+            stdout: bounded_reader(stdout, "stdout", record_overflow),
+            stderr: bounded_reader(stderr, "stderr", record_overflow)
+          }
+        end
+
+        # Reads in bounded chunks instead of a single unbounded `read`. The byte sequence for
+        # any output under the ceiling is identical, so the happy path is unchanged.
+        def bounded_reader(stream, stream_name, record_overflow)
+          Thread.new do
+            Thread.current.report_on_exception = false
+            buffer = +""
+            while (chunk = stream.read(STREAM_CHUNK_BYTES))
+              buffer << chunk
+              next if buffer.bytesize <= MAX_STREAM_BYTES
+
+              # Kill the child rather than keep draining it, and stop accumulating. The partial
+              # buffer is discarded by raise_stream_limit! and never reaches a caller.
+              record_overflow.call(stream_name)
+              break
+            end
+            buffer
+          end
+        end
+
+        # Loud by construction: the truncated buffer is dropped on the floor rather than
+        # returned. Silently handing back partial NDJSON would corrupt descriptor values,
+        # which is worse than the exhaustion the ceiling prevents.
+        def raise_stream_limit!(stream_name)
+          raise BackendError,
+                "Essentia backend exceeded the #{MAX_STREAM_BYTES} byte #{stream_name} limit; " \
+                "the subprocess was terminated and its output discarded"
+        end
+
+        # Best-effort: the child frequently exits on its own between crossing the ceiling and
+        # this call, and a group whose leader has already reaped can answer ESRCH or, on
+        # macOS, EPERM. Either means "already gone", which is the outcome we wanted.
+        #
+        # PORTABILITY -- do not simplify this rescue to ESRCH alone. Linux answers ESRCH where
+        # macOS answers EPERM, so dropping EPERM stays green on Linux CI and reintroduces the
+        # bug on macOS. Verified by mutation: dropping EPERM fails on macOS in 10/10 runs.
+        def kill_group(wait_thread)
+          Process.kill("KILL", -wait_thread.pid)
+        rescue Errno::ESRCH, Errno::EPERM
+          nil
         end
 
         def result(stdout, stderr, status)
@@ -182,7 +279,7 @@ module Sonance
       def raise_for_fatal_exit!(result)
         return if result.exitstatus&.zero?
 
-        message = result.stderr.to_s.strip
+        message = truncate_stderr(result.stderr.to_s.strip)
         if result.exitstatus.nil?
           signal = result.termsig ? " by signal #{result.termsig}" : ""
           raise BackendError, "Essentia backend terminated#{signal}"
@@ -190,6 +287,19 @@ module Sonance
         message = "Essentia backend exited #{result.exitstatus}" if message.empty?
         error_class = result.exitstatus == 2 ? ConfigurationError : BackendError
         raise error_class, message
+      end
+
+      # Keeps the head and the tail with an explicit marker naming the elided byte count, so a
+      # reader can tell the message was shortened rather than wondering where the cause went.
+      def truncate_stderr(text)
+        return text if text.bytesize <= STDERR_MESSAGE_BYTES
+
+        tail_bytes = STDERR_MESSAGE_BYTES - STDERR_MESSAGE_HEAD
+        elided = text.bytesize - STDERR_MESSAGE_BYTES
+        head = text.byteslice(0, STDERR_MESSAGE_HEAD).scrub
+        tail = text.byteslice(-tail_bytes, tail_bytes).scrub
+
+        "#{head}\n[... sonance elided #{elided} bytes of backend stderr ...]\n#{tail}"
       end
 
       def process_error(result, pathname)
