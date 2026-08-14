@@ -42,6 +42,20 @@ module Sonance
       descriptor.units
     end
 
+    # Every subclass renders the same shape the backend emits for its kind, so a rendered
+    # value can be handed straight back to {AnalysisBuilder} without a translation step.
+    # Serializing a `Value` without this returns `Object#to_json`, which stringifies the
+    # object inspect form; see https://github.com/Lhosb/sonance/issues/5.
+    def as_json(*_args)
+      raise NotImplementedError, "#{self.class} must implement as_json"
+    end
+
+    # Passing the generator state through keeps nested arrays and objects formatted by
+    # whichever JSON state the caller chose, including JSON.pretty_generate.
+    def to_json(*)
+      as_json.to_json(*)
+    end
+
     private
 
     def validate_kind!(expected)
@@ -78,6 +92,11 @@ module Sonance
       @value = value.to_f
       freeze
     end
+
+    # The backend emits a scalar descriptor as a bare number.
+    def as_json(*_args)
+      value
+    end
   end
 
   # A categorical descriptor with a label and optional strength/distribution.
@@ -95,6 +114,15 @@ module Sonance
       @strength = strength&.to_f
       @distribution = distribution&.transform_values(&:to_f)&.freeze
       freeze
+    end
+
+    # Optional members are omitted rather than emitted as null so the payload matches the
+    # keyword set {AnalysisBuilder} splats back into {Categorical}.
+    def as_json(*_args)
+      payload = { "label" => label }
+      payload["strength"] = strength unless strength.nil?
+      payload["distribution"] = distribution unless distribution.nil?
+      payload
     end
 
     private
@@ -126,6 +154,11 @@ module Sonance
       @values = values.map(&:to_f).freeze
       freeze
     end
+
+    # The backend emits a vector descriptor as a bare array of numbers.
+    def as_json(*_args)
+      values
+    end
   end
 
   class Series < Value
@@ -141,6 +174,11 @@ module Sonance
       @times = times.map(&:to_f).freeze
       @values = values.map(&:to_f).freeze
       freeze
+    end
+
+    # Keys match the keyword set {AnalysisBuilder} splats back into {Series}.
+    def as_json(*_args)
+      { "times" => times, "values" => values }
     end
 
     private
