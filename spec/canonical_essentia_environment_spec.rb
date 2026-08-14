@@ -1,5 +1,11 @@
 require "open3"
+require "pathname"
+require "tempfile"
 require_relative "support/canonical_essentia_environment"
+
+CANONICAL_CPU = "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz".freeze
+# F1: use a literal, not the constant under test — a constant-derived control moves with the bound
+PINNED_NUMPY = "2.5.2".freeze
 
 RSpec.describe "canonical Essentia golden environment" do
   it "accepts the uppercase Intel Xeon model reported by the failing GitHub runner" do
@@ -7,6 +13,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
         cpu_identifier: "INTEL(R) XEON(R) PLATINUM 8573C",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.not_to raise_error
@@ -15,6 +22,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
         cpu_identifier: "INTEL(R) CORE(TM) I7-12700K",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.to raise_error(RuntimeError, /unrecognised CPU model.*INTEL\(R\) CORE/m)
@@ -24,12 +32,14 @@ RSpec.describe "canonical Essentia golden environment" do
     expect do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
-        cpu_identifier: "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+        cpu_identifier: CANONICAL_CPU,
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "amd64",
         cpu_identifier: "Amd Epyc 7763 64-Core Processor",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.not_to raise_error
@@ -38,6 +48,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
         cpu_identifier: "Intel(R) Core(TM) i7-12700K",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.to raise_error(RuntimeError, /unrecognised CPU model.*Intel\(R\) Core/m)
@@ -47,14 +58,15 @@ RSpec.describe "canonical Essentia golden environment" do
     expect do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "arm64",
-        cpu_identifier: "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+        cpu_identifier: CANONICAL_CPU,
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.to raise_error(RuntimeError) { |error|
       expect(error.message).to include(
         "goldens require native x86_64",
         "host is arm64",
-        "CPU is Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+        "CPU is #{CANONICAL_CPU}",
         "Dockerfile.essentia"
       )
     }
@@ -62,7 +74,8 @@ RSpec.describe "canonical Essentia golden environment" do
     expect do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
-        cpu_identifier: "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+        cpu_identifier: CANONICAL_CPU,
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.not_to raise_error
@@ -73,6 +86,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
         cpu_identifier: "VirtualApple @ 2.50GHz",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.to raise_error(RuntimeError) { |error|
@@ -88,6 +102,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
         cpu_identifier: "AMD EPYC 7763 64-Core Processor",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.not_to raise_error
@@ -98,6 +113,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "arm64",
         cpu_identifier: "Apple M4",
+        numpy_ver: "0.0.0",
         allow_non_canonical: true
       )
     end.not_to raise_error
@@ -106,6 +122,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "arm64",
         cpu_identifier: "Apple M4",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.to raise_error(RuntimeError, /native x86_64/)
@@ -114,6 +131,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "arm64",
         cpu_identifier: "Apple M4",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: "true"
       )
     end.to raise_error(RuntimeError, /native x86_64/)
@@ -124,6 +142,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
         cpu_identifier: "Intel(R) Core(TM) i7-12700K",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.to raise_error(RuntimeError) { |error|
@@ -140,6 +159,7 @@ RSpec.describe "canonical Essentia golden environment" do
       CanonicalEssentiaEnvironment.verify!(
         host_cpu: "x86_64",
         cpu_identifier: "QEMU Virtual CPU version 2.5+",
+        numpy_ver: PINNED_NUMPY,
         allow_non_canonical: false
       )
     end.to raise_error(RuntimeError, /detected CPU emulation.*QEMU Virtual CPU/m)
@@ -162,5 +182,62 @@ RSpec.describe "canonical Essentia golden environment" do
     expect(status).not_to be_success
     expect(stderr).to match(/goldens require native x86_64.*host is arm64/i)
     expect(stderr).not_to include("missing model")
+  end
+
+  it "rejects a canonical CPU with the wrong numpy version and names both in the message" do
+    expect do
+      CanonicalEssentiaEnvironment.verify!(
+        host_cpu: "x86_64",
+        cpu_identifier: CANONICAL_CPU,
+        numpy_ver: "2.4.0",
+        allow_non_canonical: false
+      )
+    end.to raise_error(RuntimeError) { |error|
+      expect(error.message).to include("numpy #{PINNED_NUMPY}")
+      expect(error.message).to include("numpy 2.4.0")
+      expect(error.message).to include(CANONICAL_CPU)
+    }
+  end
+
+  it "accepts a canonical CPU with the correct numpy version" do
+    expect do
+      CanonicalEssentiaEnvironment.verify!(
+        host_cpu: "x86_64",
+        cpu_identifier: CANONICAL_CPU,
+        numpy_ver: PINNED_NUMPY,
+        allow_non_canonical: false
+      )
+    end.not_to raise_error
+  end
+
+  # F2: exercise the real numpy_version detector via its python: seam
+  describe ".numpy_version" do
+    it "returns 'unavailable' when the interpreter does not exist" do
+      expect(CanonicalEssentiaEnvironment.numpy_version(python: "/nonexistent/python3"))
+        .to eq("unavailable")
+    end
+
+    it "returns the numpy version printed by the interpreter" do
+      stub_python = Tempfile.new(["stub_python", ".sh"])
+      begin
+        stub_python.write("#!/bin/sh\necho 2.5.2\n")
+        stub_python.close
+        File.chmod(0o755, stub_python.path)
+        expect(CanonicalEssentiaEnvironment.numpy_version(python: stub_python.path))
+          .to eq("2.5.2")
+      ensure
+        stub_python.unlink
+      end
+    end
+  end
+
+  # F3: constraints.txt pin must match CANONICAL_NUMPY_VERSION in the Ruby module —
+  # two independent literals that must stay in sync; a spec is the cross-check.
+  it "constraints.txt numpy pin matches CANONICAL_NUMPY_VERSION" do
+    constraints_path = Pathname(__dir__).parent.join("constraints.txt")
+    pinned_in_file = constraints_path.read[/^numpy==(\S+)/, 1]
+    expect(pinned_in_file).to eq(CanonicalEssentiaEnvironment::CANONICAL_NUMPY_VERSION),
+                              "constraints.txt pins numpy==#{pinned_in_file} but CANONICAL_NUMPY_VERSION is " \
+                              "#{CanonicalEssentiaEnvironment::CANONICAL_NUMPY_VERSION} — update both together"
   end
 end

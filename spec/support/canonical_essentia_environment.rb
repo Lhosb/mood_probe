@@ -5,6 +5,7 @@ module CanonicalEssentiaEnvironment
   NATIVE_CPU_PATTERN = /(?:Intel\(R\)\s+Xeon\(R\)|AMD\s+EPYC)/i
   EMULATED_CPU_PATTERN = /(?:VirtualApple|QEMU(?:\s+Virtual)?\s+CPU)/i
   OVERRIDE_ENV = "SONANCE_ALLOW_NON_CANONICAL".freeze
+  CANONICAL_NUMPY_VERSION = "2.5.2".freeze
 
   def self.cpu_identifier(cpuinfo: "/proc/cpuinfo")
     return "unknown CPU" unless File.exist?(cpuinfo)
@@ -12,16 +13,35 @@ module CanonicalEssentiaEnvironment
     File.read(cpuinfo)[/^model name\s*:\s*(.+)$/, 1] || "unknown CPU"
   end
 
+  def self.numpy_version(python: ENV.fetch("SONANCE_PYTHON", "/usr/local/essentia-venv/bin/python3"))
+    return "unavailable" unless File.exist?(python)
+
+    result = `#{python} -c "import numpy; print(numpy.__version__)" 2>/dev/null`.strip
+    result.empty? ? "unavailable" : result
+  end
+
   def self.verify!(
     host_cpu: RbConfig::CONFIG.fetch("host_cpu"),
     cpu_identifier: CanonicalEssentiaEnvironment.cpu_identifier,
+    numpy_ver: CanonicalEssentiaEnvironment.numpy_version,
     allow_non_canonical: ENV[OVERRIDE_ENV] == "1"
   )
-    return if github_runner_class_x86_64?(host_cpu, cpu_identifier) || allow_non_canonical == true
+    return if allow_non_canonical == true
+
+    unless github_runner_class_x86_64?(host_cpu, cpu_identifier)
+      raise <<~MESSAGE.strip
+        #{rejection_reason(host_cpu, cpu_identifier)}
+        Run the Dockerfile.essentia native x86_64 command documented in README.md.
+        Set #{OVERRIDE_ENV}=1 only for deliberate non-canonical investigation.
+      MESSAGE
+    end
+
+    return if numpy_ver == CANONICAL_NUMPY_VERSION
 
     raise <<~MESSAGE.strip
-      #{rejection_reason(host_cpu, cpu_identifier)}
-      Run the Dockerfile.essentia native x86_64 command documented in README.md.
+      Essentia goldens require numpy #{CANONICAL_NUMPY_VERSION}; detected numpy #{numpy_ver} on #{cpu_identifier}.
+      A numpy version mismatch indicates environment drift, not a code regression.
+      Update constraints.txt and CANONICAL_NUMPY_VERSION together after re-measuring on linux/amd64.
       Set #{OVERRIDE_ENV}=1 only for deliberate non-canonical investigation.
     MESSAGE
   end

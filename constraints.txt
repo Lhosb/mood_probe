@@ -1,0 +1,35 @@
+# Python constraints for the Essentia Docker environment.
+# numpy is pinned because it is the mechanism of the reduce/take non-commutativity
+# documented in issues #9, #16, and #17. A bit-identity gate on an unpinned numpy
+# will go red for environment drift and erode trust in the gate.
+#
+# numpy version — HOW IT WAS DETERMINED:
+#   Measured on linux/amd64 (Hetzner remote builder) using ruby:4.0.1-slim as the
+#   base image, inside a python3 venv, with:
+#     pip install --no-cache-dir "essentia-tensorflow==2.1b6.dev1389"
+#     python3 -c "import numpy; print(numpy.__version__)"
+#   Result: 2.5.2
+#   Date measured: 2026-08-14
+#
+# python3 interpreter — RECORDED BUT NOT PINNED:
+#   The interpreter present in Debian trixie at the time of measurement is:
+#     python3.13  3.13.5-2+deb13u3  (verified against packages.debian.org/trixie/python3.13)
+#   Note: the python3 metapackage version (3.13.5-1) is a pointer to the default
+#   interpreter and does not move with interpreter revisions; it is NOT a useful drift
+#   detector. The actual interpreter version carries the +deb13uN suffix.
+#
+# WHY PYTHON3 IS NOT APT-PINNED:
+#   Debian removes superseded package versions from the live archive at each point
+#   release. An apt version pin (e.g. python3.13=3.13.5-2+deb13u3) becomes an
+#   unbuildable image as soon as Debian rolls to a newer revision. The FROM digest
+#   already pins the base OS layers present in the image; it does NOT pin what
+#   apt-get update and apt-get install fetch from Debian repositories afterwards,
+#   which resolve independently. If full OS-layer reproducibility is required,
+#   snapshot.debian.org can be substituted as the apt source; that is deliberately
+#   out of scope here.
+#
+# To update numpy: re-run the measurement command above on the canonical linux/amd64
+# environment, update this pin, update CANONICAL_NUMPY_VERSION in
+# spec/support/canonical_essentia_environment.rb, and regenerate any golden
+# fixtures that depend on numpy's output.
+numpy==2.5.2

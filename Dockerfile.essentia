@@ -1,15 +1,22 @@
 # syntax=docker/dockerfile:1
 
-FROM ruby:4.0.1-slim
+# The digest below is the multi-arch OCI index (application/vnd.oci.image.index.v1+json),
+# not the amd64 child manifest. Both linux/amd64 and linux/arm64 are present in the index.
+# Do not replace it with the platform-specific child digest — that breaks arm64 builds.
+FROM ruby@sha256:939bb2710ba0a49ffdba9470b4e562c9dfc5ee6718ba5a5214f1d421d0414d29
 
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential python3 python3-venv ffmpeg && \
-    python3 -m venv /usr/local/essentia-venv && \
-    /usr/local/essentia-venv/bin/pip install --no-cache-dir "essentia-tensorflow==2.1b6.dev1389" && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+WORKDIR /sonance
+COPY constraints.txt .
+RUN python3 -m venv /usr/local/essentia-venv && \
+    /usr/local/essentia-venv/bin/pip install --no-cache-dir \
+        --constraint /sonance/constraints.txt \
+        "essentia-tensorflow==2.1b6.dev1389"
 
 ENV PATH="/usr/local/essentia-venv/bin:${PATH}"
 
-WORKDIR /sonance
 COPY . .
 RUN bundle install
